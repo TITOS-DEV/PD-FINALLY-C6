@@ -1,0 +1,11 @@
+<div class="flex flex-col gap-4 p-4">
+  @for (row of rows; track row) {
+    <div class="flex items-start gap-3">
+      <div class="h-8 w-8 shrink-0 animate-pulse rounded-full bg-border"></div>
+      <div class="flex flex-1 flex-col gap-2 pt-0.5">
+        <div class="h-2.5 w-24 animate-pulse rounded-full bg-border"></div>
+        <div class="h-3 animate-pulse rounded bg-border" [style.width.%]="row % 2 === 0 ? 60 : 40"></div>
+      </div>
+    </div>
+  }
+</div>

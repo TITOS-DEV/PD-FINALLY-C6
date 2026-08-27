@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import request from "supertest";
 import { app, SEED_PASSWORD, SEED_USERS } from "./helpers/testApp";
 
-// This one costs real API calls, so it only runs when a key is actually
-// configured — CI without secrets, or a dev without OPENAI_API_KEY set,
-// just skips it instead of failing the whole suite.
+// Esta cuesta llamadas reales a la API, así que solo corre cuando de verdad
+// hay una key configurada — un CI sin secretos, o alguien en local sin
+// OPENAI_API_KEY, simplemente la salta en vez de tumbar toda la suite.
 describe.skipIf(!process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY)("Copilot (e2e)", () => {
   it("answers using only messages from the user's own channels", async () => {
     const login = await request(app)

@@ -18,28 +18,30 @@ import { CreateChannel } from "../use-cases/channels/CreateChannel";
 import { SendMessage } from "../use-cases/messages/SendMessage";
 import { GetChannelMessages } from "../use-cases/messages/GetChannelMessages";
 import { MarkMessagesAsRead } from "../use-cases/messages/MarkMessagesAsRead";
+import { EditMessage } from "../use-cases/messages/EditMessage";
+import { DeleteMessage } from "../use-cases/messages/DeleteMessage";
 import { AskCopilot } from "../use-cases/copilot/AskCopilot";
 import { IndexMessageEmbedding } from "../use-cases/copilot/IndexMessageEmbedding";
 
 /**
- * Hand-rolled dependency injection — no DI framework, just plain functions
- * that build the object graph. There are only a handful of use cases, so a
- * framework would add more ceremony than it saves.
+ * Inyección de dependencias hecha a mano — nada de framework de DI, solo
+ * funciones planas que arman el grafo de objetos. Son apenas un puñado de
+ * casos de uso, así que un framework agregaría más ceremonia de la que ahorra.
  *
- * Two flavors of container, matching the two DB contexts from
+ * Dos sabores de container, calzando con los dos contextos de BD de
  * withRLSContext.ts:
- *   - `buildSystemContainer`: for endpoints with no logged-in user yet
- *     (register/login) or that intentionally bypass RLS (embedding writes).
- *   - `buildAuthenticatedContainer`: for everything that must respect the
- *     current user's row-level permissions.
- * Both take the already-scoped `db` client as their only argument — they
- * have no idea *how* that scoping happened, they just use it.
+ *   - `buildSystemContainer`: para endpoints sin usuario logueado todavía
+ *     (registro/login) o que a propósito se saltan el RLS (escritura de embeddings).
+ *   - `buildAuthenticatedContainer`: para todo lo que debe respetar los
+ *     permisos por fila del usuario actual.
+ * Los dos reciben el cliente `db` ya escopeado como su único argumento —
+ * no tienen idea de CÓMO se hizo ese escopeo, solo lo usan.
  */
 
-// Stateless singletons: safe to build once and share across every request.
+// Singletons sin estado: seguros de armar una sola vez y compartir entre todas las requests.
 const jwtService = new JwtService();
 const passwordHasher = new PasswordHasher();
-const aiProvider = createAIProvider(); // picks OpenAI or Gemini based on AI_PROVIDER, see AIProviderFactory.ts
+const aiProvider = createAIProvider(); // elige OpenAI o Gemini según AI_PROVIDER, ver AIProviderFactory.ts
 
 export function buildSystemContainer(db: IDbClient) {
   const userRepository = new SupabaseUserRepository(db);
@@ -64,11 +66,13 @@ export function buildAuthenticatedContainer(db: IDbClient) {
     sendMessage: new SendMessage(messageRepository, channelRepository),
     getChannelMessages: new GetChannelMessages(messageRepository, channelRepository),
     markMessagesAsRead: new MarkMessagesAsRead(messageRepository),
+    editMessage: new EditMessage(messageRepository),
+    deleteMessage: new DeleteMessage(messageRepository),
     askCopilot: new AskCopilot(aiProvider, aiProvider, embeddingRepository),
   };
 }
 
-/** Only for the fire-and-forget embedding indexing step, run with system context. */
+/** Solo para el paso de indexado de embeddings en modo fire-and-forget, con contexto de sistema. */
 export function buildEmbeddingIndexer(db: IDbClient): IndexMessageEmbedding {
   return new IndexMessageEmbedding(aiProvider, new SupabaseMessageEmbeddingRepository(db));
 }

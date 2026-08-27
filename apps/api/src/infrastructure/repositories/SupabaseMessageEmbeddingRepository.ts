@@ -13,7 +13,7 @@ interface MatchRow {
   similarity: number;
 }
 
-/** pgvector wants its literal as `[0.1,0.2,...]`, not a JS array. */
+/** pgvector quiere su literal como `[0.1,0.2,...]`, no un array de JS. */
 function toVectorLiteral(vector: number[]): string {
   return `[${vector.join(",")}]`;
 }
@@ -22,8 +22,8 @@ export class SupabaseMessageEmbeddingRepository implements IMessageEmbeddingRepo
   constructor(private readonly db: IDbClient) {}
 
   async upsert(messageId: string, embedding: number[]): Promise<void> {
-    // Runs with the system/service context (see withSystemContext), matching
-    // the `rw_message_embeddings_insert` policy which is `TO service_role`.
+    // Corre con el contexto de sistema/servicio (ver withSystemContext),
+    // calzando con la política `rw_message_embeddings_insert` que es `TO service_role`.
     await this.db.query(
       `INSERT INTO rw_message_embeddings (message_id, embedding)
        VALUES ($1, $2::vector)
@@ -37,15 +37,16 @@ export class SupabaseMessageEmbeddingRepository implements IMessageEmbeddingRepo
     queryEmbedding: number[];
     limit: number;
   }): Promise<SimilarMessageMatch[]> {
-    // Two layers of "only your channels" here, on purpose:
-    //   1. RLS on rw_message_embeddings already restricts SELECT to rows
-    //      whose message belongs to a channel the caller is a member of.
-    //   2. We ALSO join rw_channel_members explicitly in this query.
-    // That second layer isn't redundant paranoia for its own sake — it's
-    // the exact requirement from the spec ("the copilot must only search
-    // vectors in the user's own channels"), made visible in the query
-    // instead of depending purely on a DB policy the reader might not see.
-    // `<=>` is pgvector's cosine DISTANCE operator; similarity = 1 - distance.
+    // Dos capas de "solo tus canales" acá, a propósito:
+    //   1. El RLS en rw_message_embeddings ya restringe el SELECT a filas
+    //      cuyo mensaje pertenece a un canal del que el que llama es miembro.
+    //   2. TAMBIÉN hacemos join explícito con rw_channel_members en esta consulta.
+    // Esa segunda capa no es paranoia redundante porque sí — es el
+    // requerimiento exacto del enunciado ("el copiloto debe buscar
+    // vectorialmente SOLO en los canales del usuario"), hecho visible en la
+    // consulta en vez de depender solamente de una política de BD que quien
+    // lea el código quizás no vea.
+    // `<=>` es el operador de DISTANCIA coseno de pgvector; similarity = 1 - distancia.
     const { rows } = await this.db.query<MatchRow>(
       `SELECT
          m.id AS message_id,

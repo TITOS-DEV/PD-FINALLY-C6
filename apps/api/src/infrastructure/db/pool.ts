@@ -2,20 +2,21 @@ import { Pool } from "pg";
 import { env } from "../config/env";
 
 /**
- * The one and only connection pool for the whole process.
+ * El único pool de conexiones para todo el proceso.
  *
- * IMPORTANT: this connects straight to Postgres (Supabase's "Connection
- * string", not the supabase-js REST client). We need a raw `pg` connection
- * because Row Level Security is enforced per-transaction by setting session
- * variables (`request.jwt.claims`, `role`) — something the supabase-js
- * client doesn't let us do, since it always talks through PostgREST using
- * either the anon key or the service_role key (which bypasses RLS
- * entirely). See withRLSContext.ts for how those variables get set.
+ * IMPORTANTE: esto se conecta directo a Postgres (el "Connection string" de
+ * Supabase, no el cliente REST de supabase-js). Necesitamos una conexión
+ * `pg` cruda porque el Row Level Security se activa por transacción,
+ * seteando variables de sesión (`request.jwt.claims`, `role`) — algo que el
+ * cliente de supabase-js no nos deja hacer, porque siempre habla a través
+ * de PostgREST usando la `anon key` o la `service_role key` (esta última se
+ * salta el RLS por completo). Ver withRLSContext.ts para cómo se setean esas variables.
  */
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
-  // Supabase's pooled connection strings require SSL; rejectUnauthorized:false
-  // is the standard setting for their managed certs when not pinning a CA bundle.
+  // Los connection strings del pool de Supabase requieren SSL;
+  // rejectUnauthorized:false es la configuración estándar para sus
+  // certificados administrados cuando no fijas un bundle de CA propio.
   ssl: env.NODE_ENV === "production" || env.DATABASE_URL.includes("supabase.co")
     ? { rejectUnauthorized: false }
     : undefined,
@@ -24,7 +25,7 @@ export const pool = new Pool({
 });
 
 pool.on("error", (err) => {
-  // A broken idle client shouldn't crash the whole process — just log it.
+  // Un cliente idle roto no debería tumbar todo el proceso — solo lo logueamos.
   // eslint-disable-next-line no-console
   console.error("Unexpected error on idle Postgres client", err);
 });

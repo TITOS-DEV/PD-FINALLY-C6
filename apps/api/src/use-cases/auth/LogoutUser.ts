@@ -2,11 +2,12 @@ import { IRefreshTokenRepository } from "../../domain/repositories/IRefreshToken
 import { JwtService } from "../../infrastructure/auth/JwtService";
 
 /**
- * Logout just means "revoke the refresh token". The access token itself
- * can't be revoked (it's a stateless JWT) — it simply expires on its own
- * within JWT_ACCESS_EXPIRES_IN, which is exactly why we keep that window
- * short. Silently no-ops on an unknown token: logging out twice, or with a
- * garbage token, shouldn't be an error from the client's point of view.
+ * Cerrar sesión es simplemente "revocar el refresh token". El access token
+ * en sí no se puede revocar (es un JWT sin estado) — simplemente expira
+ * solo dentro de la ventana de JWT_ACCESS_EXPIRES_IN, que es justo por eso
+ * que la dejamos corta. No hace nada (sin error) con un token desconocido:
+ * cerrar sesión dos veces, o con un token basura, no debería ser un error
+ * desde el punto de vista del cliente.
  */
 export class LogoutUser {
   constructor(

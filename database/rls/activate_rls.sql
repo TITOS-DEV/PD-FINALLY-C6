@@ -26,7 +26,7 @@ ALTER TABLE
 -- 2. FUNCIÓN AUXILIAR DE SEGURIDAD (ADMIN)
 -- ============================================
 CREATE
-OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN AS $ $
+OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN AS $$
 SELECT
     EXISTS (
         SELECT
@@ -38,7 +38,37 @@ SELECT
             AND role = 'admin'
     );
 
-$ $ LANGUAGE sql SECURITY DEFINER
+$$ LANGUAGE sql SECURITY DEFINER
+SET
+    search_path = public;
+
+-- ============================================
+-- 2.1 FUNCIÓN AUXILIAR: ¿SOY MIEMBRO DE ESTE CANAL?
+-- ============================================
+-- Existe por la misma razón que is_admin(): la política
+-- "rw_channel_members_select" necesita saber si el usuario pertenece a un
+-- canal consultando la propia tabla rw_channel_members. Si esa consulta se
+-- escribe como una subconsulta directa contra rw_channel_members dentro de
+-- su propia política, Postgres tiene que volver a aplicar esa misma
+-- política para evaluar la subconsulta, que a su vez la vuelve a evaluar...
+-- y termina en "infinite recursion detected in policy for relation
+-- rw_channel_members". SECURITY DEFINER es la salida: la función corre con
+-- los privilegios de quien la creó, así que la consulta interna a
+-- rw_channel_members se salta el RLS por completo, sin ciclos.
+CREATE
+OR REPLACE FUNCTION public.is_channel_member(p_channel_id UUID) RETURNS BOOLEAN AS $$
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            rw_channel_members
+        WHERE
+            channel_id = p_channel_id
+            AND user_id = auth.uid()
+    );
+
+$$ LANGUAGE sql SECURITY DEFINER
 SET
     search_path = public;
 
@@ -115,18 +145,13 @@ CREATE POLICY "rw_channels_delete" ON rw_channels FOR DELETE TO authenticated US
 -- TABLA: rw_channel_members
 -----------------------------------------------
 -- Ver miembros: Si el usuario forma parte del canal o es admin.
+-- Usa is_channel_member() en vez de una subconsulta directa contra esta
+-- misma tabla — ver el comentario junto a esa función para el porqué
+-- (si no, esto causa "infinite recursion detected in policy").
 CREATE POLICY "rw_channel_members_select" ON rw_channel_members FOR
 SELECT
     TO authenticated USING (
-        EXISTS (
-            SELECT
-                1
-            FROM
-                rw_channel_members sub_cm
-            WHERE
-                sub_cm.channel_id = rw_channel_members.channel_id
-                AND sub_cm.user_id = auth.uid()
-        )
+        is_channel_member(channel_id)
         OR is_admin()
     );
 

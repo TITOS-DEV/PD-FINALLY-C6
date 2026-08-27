@@ -1,0 +1,45 @@
+<div
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+  (click)="closed.emit()"
+>
+  @if (user(); as currentUser) {
+    <div
+      class="w-full max-w-sm rounded-fluent-lg bg-surface p-6 shadow-lg"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink-1">{{ 'profile.modal.title' | translate }}</h2>
+        <button
+          type="button"
+          class="rounded p-1 text-ink-3 hover:bg-surface-muted hover:text-ink-1"
+          [attr.aria-label]="'common.close' | translate"
+          (click)="closed.emit()"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="mt-5 flex flex-col items-center gap-3 text-center">
+        <app-avatar [name]="currentUser.name" [seed]="currentUser.id" size="lg" />
+        <div>
+          <p class="text-base font-semibold text-ink-1">{{ currentUser.name }}</p>
+          <p class="text-sm text-ink-3">{{ currentUser.email }}</p>
+        </div>
+        <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+          {{ 'profile.role.' + currentUser.role | translate }}
+        </span>
+      </div>
+
+      <dl class="mt-6 flex flex-col gap-2 border-t border-border pt-4 text-sm">
+        <div class="flex items-center justify-between">
+          <dt class="text-ink-3">{{ 'profile.modal.memberSince' | translate }}</dt>
+          <dd class="font-medium text-ink-1">{{ currentUser.createdAt | date: 'mediumDate' }}</dd>
+        </div>
+        <div class="flex items-center justify-between">
+          <dt class="text-ink-3">{{ 'profile.modal.channels' | translate }}</dt>
+          <dd class="font-medium text-ink-1">{{ channelCount() }}</dd>
+        </div>
+      </dl>
+    </div>
+  }
+</div>

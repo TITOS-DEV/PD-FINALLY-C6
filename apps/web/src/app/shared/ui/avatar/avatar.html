@@ -1,0 +1,16 @@
+<span
+  class="inline-flex shrink-0 items-center justify-center rounded-full font-semibold"
+  [class.h-8]="size() === 'md'"
+  [class.w-8]="size() === 'md'"
+  [class.text-xs]="size() === 'md'"
+  [class.h-6]="size() === 'sm'"
+  [class.w-6]="size() === 'sm'"
+  [class.text-[10px]]="size() === 'sm'"
+  [class.h-16]="size() === 'lg'"
+  [class.w-16]="size() === 'lg'"
+  [class.text-xl]="size() === 'lg'"
+  [style.background-color]="colors().bg"
+  [style.color]="colors().fg"
+>
+  {{ initials() }}
+</span>

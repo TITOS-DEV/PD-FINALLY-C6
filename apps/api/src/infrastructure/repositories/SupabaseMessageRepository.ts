@@ -4,7 +4,7 @@ import {
   IMessageRepository,
   SendMessageInput,
 } from "../../domain/repositories/IMessageRepository";
-import { Message, MessageStatus } from "../../domain/entities/Message";
+import { Message, MessageStatus, MessageWithAuthor } from "../../domain/entities/Message";
 
 interface MessageRow {
   id: string;
@@ -15,6 +15,10 @@ interface MessageRow {
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;
+}
+
+interface MessageWithAuthorRow extends MessageRow {
+  author_name: string;
 }
 
 function toEntity(row: MessageRow): Message {
@@ -30,59 +34,84 @@ function toEntity(row: MessageRow): Message {
   };
 }
 
+function toEntityWithAuthor(row: MessageWithAuthorRow): MessageWithAuthor {
+  return { ...toEntity(row), authorName: row.author_name };
+}
+
 export class SupabaseMessageRepository implements IMessageRepository {
-  // `db` is a pg client that already had `withRLSContext` run on it, so
-  // every query below is executed as Postgres role `authenticated` with
-  // `request.jwt.claims.sub` set to the current user. The `rw_messages_*`
-  // policies (see database/rls/activate_rls.sql) do the actual gatekeeping —
-  // this class just writes plain SQL and trusts the DB to enforce access.
+  // `db` es un cliente de pg que ya pasó por `withRLSContext`, así que cada
+  // consulta de acá abajo se ejecuta como el rol de Postgres `authenticated`
+  // con `request.jwt.claims.sub` seteado al usuario actual. Las políticas
+  // `rw_messages_*` (ver database/rls/activate_rls.sql) hacen el control de
+  // acceso real — esta clase solo escribe SQL plano y confía en que la BD lo haga cumplir.
   constructor(private readonly db: IDbClient) {}
 
-  async create(input: SendMessageInput): Promise<Message> {
-    // We don't check membership here — that's the job of the RLS insert
-    // policy (`rw_messages_insert`, which requires user_id = auth.uid() AND
-    // the user being a member of the channel) plus, one layer up, the
-    // SendMessage use case for a friendlier error before we even hit the DB.
+  async create(input: SendMessageInput): Promise<MessageWithAuthor> {
+    // Acá no chequeamos membresía — eso es trabajo de la política RLS de
+    // insert (`rw_messages_insert`, que exige user_id = auth.uid() Y que el
+    // usuario sea miembro del canal) más, una capa arriba, el caso de uso
+    // SendMessage para dar un error más amigable antes de siquiera tocar la BD.
+    //
+    // El INSERT y el JOIN con rw_users van en pasos separados: un solo
+    // `INSERT ... RETURNING` no puede traer columnas de otra tabla, así que
+    // insertamos primero y resolvemos el nombre del autor con la segunda
+    // consulta — que en este caso siempre es el usuario autenticado (lo
+    // acabamos de insertar nosotros mismos), no hace falta un JOIN de verdad.
     const { rows } = await this.db.query<MessageRow>(
       `INSERT INTO rw_messages (channel_id, user_id, content, status)
        VALUES ($1, $2, $3, 'sent')
        RETURNING *`,
       [input.channelId, input.userId, input.content]
     );
-    return toEntity(rows[0]!);
+    const message = rows[0]!;
+
+    const { rows: userRows } = await this.db.query<{ name: string }>(
+      `SELECT name FROM rw_users WHERE id = $1`,
+      [message.user_id]
+    );
+
+    return toEntityWithAuthor({ ...message, author_name: userRows[0]?.name ?? "" });
   }
 
-  async findByChannel({ channelId, cursor, limit }: GetChannelMessagesInput): Promise<Message[]> {
-    // Keyset pagination: instead of "skip N rows" (OFFSET), we ask
-    // Postgres for "rows strictly older than this exact point in the
-    // ordering". Because the ordering is (created_at DESC, id DESC) and we
-    // have the composite index idx_rw_messages_channel_created matching it
-    // exactly, this is a single index range scan no matter how deep the
-    // history is — OFFSET 50000 would force Postgres to walk and discard
-    // 50000 rows first. The row-value comparison `(created_at, id) < (a, b)`
-    // is what makes the tie-break on `id` correct when two messages share
-    // the same millisecond timestamp.
+  async findByChannel({ channelId, cursor, limit }: GetChannelMessagesInput): Promise<MessageWithAuthor[]> {
+    // Paginación por keyset: en vez de "saltate N filas" (OFFSET), le
+    // pedimos a Postgres las filas "estrictamente más viejas que este punto
+    // exacto del orden". Como el orden es (created_at DESC, id DESC) y
+    // tenemos el índice compuesto idx_rw_messages_channel_created que
+    // calza exacto con eso, esto es un único recorrido de índice sin
+    // importar qué tan atrás esté el historial — un OFFSET 50000 obligaría
+    // a Postgres a recorrer y descartar 50000 filas primero. La comparación
+    // de valores en fila `(created_at, id) < (a, b)` es lo que hace correcto
+    // el desempate por `id` cuando dos mensajes comparten el mismo milisegundo.
+    //
+    // El JOIN con rw_users trae el nombre del autor — sin esto, el frontend
+    // no tiene forma de distinguir quién escribió cada mensaje ajeno más
+    // que por su userId crudo.
     if (cursor) {
-      const { rows } = await this.db.query<MessageRow>(
-        `SELECT * FROM rw_messages
-         WHERE channel_id = $1
-           AND deleted_at IS NULL
-           AND (created_at, id) < ($2, $3)
-         ORDER BY created_at DESC, id DESC
+      const { rows } = await this.db.query<MessageWithAuthorRow>(
+        `SELECT m.*, u.name AS author_name
+         FROM rw_messages m
+         JOIN rw_users u ON u.id = m.user_id
+         WHERE m.channel_id = $1
+           AND m.deleted_at IS NULL
+           AND (m.created_at, m.id) < ($2, $3)
+         ORDER BY m.created_at DESC, m.id DESC
          LIMIT $4`,
         [channelId, cursor.createdAt, cursor.id, limit]
       );
-      return rows.map(toEntity);
+      return rows.map(toEntityWithAuthor);
     }
 
-    const { rows } = await this.db.query<MessageRow>(
-      `SELECT * FROM rw_messages
-       WHERE channel_id = $1 AND deleted_at IS NULL
-       ORDER BY created_at DESC, id DESC
+    const { rows } = await this.db.query<MessageWithAuthorRow>(
+      `SELECT m.*, u.name AS author_name
+       FROM rw_messages m
+       JOIN rw_users u ON u.id = m.user_id
+       WHERE m.channel_id = $1 AND m.deleted_at IS NULL
+       ORDER BY m.created_at DESC, m.id DESC
        LIMIT $2`,
       [channelId, limit]
     );
-    return rows.map(toEntity);
+    return rows.map(toEntityWithAuthor);
   }
 
   async findById(id: string): Promise<Message | null> {
@@ -90,10 +119,30 @@ export class SupabaseMessageRepository implements IMessageRepository {
     return rows[0] ? toEntity(rows[0]) : null;
   }
 
+  async updateContent(id: string, content: string): Promise<MessageWithAuthor> {
+    // El UPDATE en sí lo protege la política RLS `rw_messages_update`
+    // (user_id = auth.uid() OR is_admin()) — EditMessage además valida la
+    // autoría antes de llegar acá, para poder devolver un 403 amigable en
+    // vez de que la fila simplemente no se actualice en silencio.
+    const { rows } = await this.db.query<MessageRow>(
+      `UPDATE rw_messages SET content = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [content, id]
+    );
+    const message = rows[0]!;
+
+    const { rows: userRows } = await this.db.query<{ name: string }>(
+      `SELECT name FROM rw_users WHERE id = $1`,
+      [message.user_id]
+    );
+
+    return toEntityWithAuthor({ ...message, author_name: userRows[0]?.name ?? "" });
+  }
+
   async softDelete(id: string): Promise<void> {
-    // Physical DELETE is forbidden for this table — we only ever stamp
-    // deleted_at. The RLS update policy still checks user_id = auth.uid()
-    // OR is_admin(), so this can't be used to erase someone else's message.
+    // El DELETE físico está prohibido para esta tabla — solo marcamos
+    // deleted_at. La política de update del RLS igual chequea
+    // user_id = auth.uid() OR is_admin(), así que esto no se puede usar
+    // para borrar el mensaje de otra persona.
     await this.db.query(
       `UPDATE rw_messages SET deleted_at = NOW(), status = 'deleted' WHERE id = $1`,
       [id]

@@ -6,10 +6,10 @@ export interface MarkMessagesAsReadInput {
 }
 
 /**
- * Records read receipts. No membership check needed here beyond what RLS
- * already guarantees: the INSERT policy on rw_message_read_status only
- * allows `user_id = auth.uid()`, and the repository's SQL already scopes
- * everything to the caller — there's nothing else to validate at this level.
+ * Registra confirmaciones de lectura. Acá no hace falta chequear membresía
+ * más allá de lo que el RLS ya garantiza: la política de INSERT en
+ * rw_message_read_status solo permite `user_id = auth.uid()`, y el SQL del
+ * repositorio ya escopea todo a quien llama — no hay nada más que validar en este nivel.
  */
 export class MarkMessagesAsRead {
   constructor(private readonly messageRepository: IMessageRepository) {}

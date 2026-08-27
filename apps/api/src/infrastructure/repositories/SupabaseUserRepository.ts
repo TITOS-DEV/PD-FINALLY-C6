@@ -25,9 +25,9 @@ function toEntity(row: UserRow): User {
 }
 
 /**
- * Repository is instantiated per-request with a `db` client that's already
- * scoped to the current user by `withRLSContext` (or the system role for
- * unauthenticated flows like login/signup, which don't have a `sub` yet).
+ * El repositorio se instancia por request con un `db` que ya viene
+ * escopeado al usuario actual por `withRLSContext` (o al rol de sistema
+ * para flujos sin usuario todavía, como login/signup).
  */
 export class SupabaseUserRepository implements IUserRepository {
   constructor(private readonly db: IDbClient) {}

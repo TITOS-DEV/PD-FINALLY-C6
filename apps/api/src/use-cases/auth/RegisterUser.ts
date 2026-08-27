@@ -10,9 +10,9 @@ export interface RegisterUserInput {
 }
 
 /**
- * Signup. Like AuthenticateUser, this runs with no `auth.uid()` yet, so
- * it's wired with the system DB context. New accounts always come out as
- * role "user" — nobody gets to self-promote to admin through this endpoint.
+ * Registro. Igual que AuthenticateUser, esto corre sin ningún `auth.uid()`
+ * todavía, así que se conecta con el contexto de sistema de la BD. Las
+ * cuentas nuevas siempre salen con rol "user" — nadie se auto-promueve a admin por este endpoint.
  */
 export class RegisterUser {
   constructor(

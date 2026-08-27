@@ -1,19 +1,20 @@
 /**
- * Port for "whatever LLM answers the copilot's questions". AskCopilot only
- * talks to this interface, never to the OpenAI or Gemini SDKs directly.
- * Swapping providers means writing a new adapter in infrastructure/ai and
- * changing one line of config — the use case doesn't change at all.
+ * Puerto para "lo que sea que le responda las preguntas al copiloto".
+ * AskCopilot solo le habla a esta interfaz, nunca directo a los SDKs de
+ * OpenAI o Gemini. Cambiar de proveedor significa escribir un adaptador
+ * nuevo en infrastructure/ai y cambiar una línea de configuración — el
+ * caso de uso no cambia para nada.
  */
 export interface ILLMProvider {
   /**
-   * @param question   The user's raw question.
-   * @param contextChunks  Retrieved message snippets (the "R" in RAG) that
-   *                       ground the answer in real conversation history.
+   * @param question   La pregunta cruda del usuario.
+   * @param contextChunks  Fragmentos de mensajes recuperados (la "R" de RAG) que
+   *                       anclan la respuesta en el historial real de la conversación.
    */
   generateAnswer(question: string, contextChunks: string[]): Promise<string>;
 }
 
-/** Port for turning text into a vector, used both to index messages and to embed the question. */
+/** Puerto para convertir texto en un vector, usado tanto para indexar mensajes como para la pregunta. */
 export interface IEmbeddingProvider {
   embed(text: string): Promise<number[]>;
 }

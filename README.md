@@ -193,3 +193,68 @@ pnpm test:all
 
 - [DECISIONS.md](./DECISIONS.md) — por qué se tomó cada decisión técnica importante, explicado sin vueltas.
 - `database/MER.pdf` — diagrama entidad-relación completo.
+
+---
+
+# Frontend (apps/web)
+
+Angular 21 (standalone + Signals), con estética Fluent/Microsoft 365 y Tailwind CSS.
+
+> **Nota de versión:** el enunciado pedía "la última versión estable" de Angular. Al armar el proyecto, la v22 (la más nueva) exige Node ≥22.22.3 / ≥24.15.0 / ≥26, una versión más nueva que la disponible en el entorno de desarrollo. Por eso el proyecto quedó en **Angular 21.2** (la estable anterior, totalmente soportada). Si tu máquina tiene Node 24.15+ o 26+, podés subir con `ng update @angular/core@22 @angular/cli@22`. Ver DECISIONS.md, sección 12.
+
+## 1. Qué necesitas instalado
+
+- Node.js 20.19+, 22.12+ o 24+ (ver la nota de arriba)
+- pnpm (el monorepo completo usa pnpm workspaces)
+- El backend de `apps/api` corriendo (ver la sección de arriba) — el frontend no funciona solo, necesita la API para todo: login, canales, mensajes, copiloto.
+
+## 2. Variables de entorno
+
+A diferencia del backend, Angular no lee un `.env` en tiempo de ejecución — todo se resuelve en **tiempo de build**, en los archivos de `src/environments/`:
+
+- `environment.development.ts`: el que se usa con `ng serve` / `npm start`. Ya viene apuntando a `http://localhost:4000` (el backend local).
+- `environment.ts`: el que se usa en `ng build` (producción). Trae rutas relativas (`/api`) asumiendo que el frontend se sirve detrás del mismo dominio/reverse proxy que la API.
+
+Si tu backend corre en otro puerto o dominio, edita el archivo que corresponda antes de compilar.
+
+## 3. Levantar el frontend en desarrollo
+
+```bash
+cd apps/web
+pnpm install   # si no lo hiciste ya desde la raíz del monorepo
+pnpm start     # alias de `ng serve`
+```
+
+Queda en `http://localhost:4200`. Necesita el backend corriendo en paralelo (`http://localhost:4000` por defecto) para que el login y todo lo demás funcionen.
+
+## 4. Compilar para producción
+
+```bash
+cd apps/web
+pnpm run build
+```
+
+El resultado queda en `apps/web/dist/web/browser` — listo para servir con cualquier servidor de archivos estáticos (Nginx, Caddy, etc.) detrás del mismo dominio que la API, o configurando CORS si quedan en dominios distintos (ver `CORS_ORIGIN` en el `.env` del backend).
+
+## 5. Estructura del proyecto
+
+```
+src/app/
+  core/               → servicios de toda la app: auth (login/refresh/logout), i18n, WebSocket
+  features/
+    auth/               → pantalla de login/registro
+    chat/                 → canales, historial de mensajes, el composer
+    copilot/              → el panel de IA con RAG
+    profile/              → tarjeta de usuario + selector de idioma
+  shared/ui/          → piezas visuales reutilizables sin lógica de negocio (Avatar, EmptyState, Toast...)
+public/i18n/          → diccionarios de traducción (es.json, en.json)
+```
+
+## 6. Probarlo
+
+1. Levanta el backend (ver arriba) y aplica el seed si todavía no lo hiciste.
+2. Levanta el frontend (`pnpm start`) y entra a `http://localhost:4200`.
+3. Inicia sesión con `jhonatan@riwi.io` / `Password123!` (ver la tabla de usuarios sembrados más arriba).
+4. Deberías ver tus canales a la izquierda, el chat en el centro y el copiloto a la derecha (en mobile, los dos primeros son drawers que se abren con los botones de la barra superior).
+5. Envía un mensaje — debería aparecer al toque como "Enviando…" y pasar a confirmado apenas el backend responde.
+6. Pregúntale algo al copiloto sobre lo que se habló en tus canales — la respuesta debería venir con las fuentes citadas debajo.

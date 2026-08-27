@@ -3,9 +3,9 @@ import { withRLSContext } from "../../../infrastructure/db/withRLSContext";
 import { buildAuthenticatedContainer } from "../../container";
 
 /**
- * `authMiddleware` runs before every handler here, so `req.user` is always
- * set. `withRLSContext(req.user.sub, ...)` is what actually turns that
- * identity into an active RLS session for the query below.
+ * `authMiddleware` corre antes que cualquier handler de acá, así que
+ * `req.user` siempre está seteado. `withRLSContext(req.user.sub, ...)` es lo
+ * que de verdad convierte esa identidad en una sesión con RLS activo para la consulta de abajo.
  */
 export const ChannelController = {
   async list(req: Request, res: Response): Promise<void> {

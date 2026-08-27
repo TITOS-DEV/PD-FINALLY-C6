@@ -1,0 +1,52 @@
+@if (authService.currentUser(); as user) {
+  <div class="flex flex-col gap-3 border-t border-nav-border p-3">
+    <button
+      type="button"
+      class="flex items-center gap-2 rounded-fluent p-1 text-left hover:bg-nav-hover"
+      [attr.aria-label]="'profile.modal.title' | translate"
+      (click)="showProfileModal.set(true)"
+    >
+      <app-avatar [name]="user.name" [seed]="user.id" />
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-sm font-semibold text-white">{{ user.name }}</p>
+        <p class="truncate text-xs text-nav-text-muted">{{ user.email }}</p>
+      </div>
+      <span class="shrink-0 rounded-full bg-nav-hover px-2 py-0.5 text-[11px] font-medium text-brand-300">
+        {{ 'profile.role.' + user.role | translate }}
+      </span>
+    </button>
+
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex overflow-hidden rounded-fluent border border-nav-border text-xs">
+        <button
+          type="button"
+          class="px-2 py-1 font-medium"
+          [class.bg-brand-500]="i18n.currentLang() === 'es'"
+          [class.text-white]="i18n.currentLang() === 'es'"
+          [class.text-nav-text-muted]="i18n.currentLang() !== 'es'"
+          (click)="setLanguage('es')"
+        >
+          ES
+        </button>
+        <button
+          type="button"
+          class="px-2 py-1 font-medium"
+          [class.bg-brand-500]="i18n.currentLang() === 'en'"
+          [class.text-white]="i18n.currentLang() === 'en'"
+          [class.text-nav-text-muted]="i18n.currentLang() !== 'en'"
+          (click)="setLanguage('en')"
+        >
+          EN
+        </button>
+      </div>
+
+      <button type="button" class="text-xs font-medium text-red-400 hover:underline" (click)="logout()">
+        {{ 'profile.logout' | translate }}
+      </button>
+    </div>
+  </div>
+
+  @if (showProfileModal()) {
+    <app-profile-modal (closed)="showProfileModal.set(false)" />
+  }
+}

@@ -1,10 +1,11 @@
 /**
- * Minimal shape of a database client that repositories depend on.
+ * Forma mínima que necesita un cliente de base de datos para que los
+ * repositorios dependan de ella.
  *
- * We deliberately don't import anything from `pg` here — the domain layer
- * shouldn't know which driver is behind it. In infrastructure, a real
- * `pg.PoolClient` (already scoped to the authenticated user, see
- * `withRLSContext.ts`) satisfies this interface without any wrapping.
+ * A propósito no importamos nada de `pg` acá — la capa de dominio no debería
+ * saber qué driver hay detrás. En infrastructure, un `pg.PoolClient` real
+ * (ya escopeado al usuario autenticado, ver `withRLSContext.ts`) cumple esta
+ * interfaz sin necesitar ningún wrapper.
  */
 export interface IDbClient {
   query<Row extends object = Record<string, unknown>>(

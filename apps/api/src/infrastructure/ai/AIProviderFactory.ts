@@ -4,13 +4,13 @@ import { OpenAIProvider } from "./OpenAIProvider";
 import { GeminiProvider } from "./GeminiProvider";
 
 /**
- * Strategy pattern in its simplest form: one factory function, one env var
- * (`AI_PROVIDER`), zero `if (provider === "openai")` checks scattered around
- * the codebase. AskCopilot (and anything else using the AI) only ever sees
- * `ILLMProvider` / `IEmbeddingProvider` — it has no idea which concrete
- * class it got.
+ * El patrón Strategy en su forma más simple: una función factory, una
+ * variable de entorno (`AI_PROVIDER`), cero `if (provider === "openai")`
+ * repartidos por todo el código. AskCopilot (y cualquier otra cosa que use
+ * la IA) solo ve `ILLMProvider` / `IEmbeddingProvider` — no tiene idea de
+ * qué clase concreta le tocó.
  *
- * Built once at startup and reused — see container.ts.
+ * Se arma una sola vez al arrancar y se reutiliza — ver container.ts.
  */
 export function createAIProvider(): ILLMProvider & IEmbeddingProvider {
   switch (env.AI_PROVIDER) {
@@ -19,8 +19,8 @@ export function createAIProvider(): ILLMProvider & IEmbeddingProvider {
     case "gemini":
       return new GeminiProvider();
     default: {
-      // Exhaustiveness check: if a new provider is ever added to the env
-      // schema without a case here, TypeScript flags it at compile time.
+      // Chequeo de exhaustividad: si algún día se agrega un proveedor nuevo
+      // al schema de env sin un case acá, TypeScript lo marca en tiempo de compilación.
       const _exhaustive: never = env.AI_PROVIDER;
       throw new Error(`Unsupported AI provider: ${_exhaustive}`);
     }

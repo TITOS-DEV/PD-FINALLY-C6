@@ -5,10 +5,10 @@ import { buildAuthenticatedContainer } from "../../container";
 export const CopilotController = {
   async ask(req: Request, res: Response): Promise<void> {
     const userId = req.user!.sub;
-    // Runs inside withRLSContext even though AskCopilot's SQL is a manual
-    // join, not a plain SELECT relying only on policies — the RLS session
-    // is still what the `rw_message_embeddings` policy checks as the last
-    // line of defense (see AskCopilot.ts and the embedding repository).
+    // Corre dentro de withRLSContext aunque el SQL de AskCopilot es un join
+    // manual, no un SELECT plano que dependa solo de políticas — la sesión
+    // con RLS igual es lo que la política de `rw_message_embeddings` chequea
+    // como última línea de defensa (ver AskCopilot.ts y el repositorio de embeddings).
     const result = await withRLSContext(userId, (db) =>
       buildAuthenticatedContainer(db).askCopilot.execute({ userId, question: req.body.question })
     );

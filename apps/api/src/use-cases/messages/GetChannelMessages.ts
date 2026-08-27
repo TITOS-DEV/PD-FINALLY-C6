@@ -1,6 +1,6 @@
 import { IMessageRepository } from "../../domain/repositories/IMessageRepository";
 import { IChannelRepository } from "../../domain/repositories/IChannelRepository";
-import { Message, MessageCursor } from "../../domain/entities/Message";
+import { MessageCursor, MessageWithAuthor } from "../../domain/entities/Message";
 import { ForbiddenError } from "../../domain/errors/AppError";
 
 export interface GetChannelMessagesInput {
@@ -11,8 +11,8 @@ export interface GetChannelMessagesInput {
 }
 
 export interface GetChannelMessagesOutput {
-  messages: Message[];
-  /** Pass this back as `cursor` to fetch the next (older) page. Null when we've reached the start. */
+  messages: MessageWithAuthor[];
+  /** Se devuelve como `cursor` para traer la próxima página (más vieja). Null cuando ya se llegó al principio. */
   nextCursor: MessageCursor | null;
 }
 
@@ -37,8 +37,8 @@ export class GetChannelMessages {
       limit,
     });
 
-    // The cursor for the NEXT page is just the (created_at, id) of the last
-    // row we returned — that's the whole trick behind keyset pagination.
+    // El cursor para la SIGUIENTE página es solo el (created_at, id) de la
+    // última fila que devolvimos — ese es todo el truco detrás de la paginación por keyset.
     const last = messages[messages.length - 1];
     const nextCursor: MessageCursor | null =
       messages.length === limit && last ? { createdAt: last.createdAt, id: last.id } : null;

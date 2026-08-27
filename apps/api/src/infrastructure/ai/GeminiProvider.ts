@@ -5,13 +5,21 @@ import { env } from "../config/env";
 const SYSTEM_PROMPT = `You are Riwi's internal copilot. Answer the user's question using ONLY the
 provided conversation excerpts as context. If the answer isn't in the
 excerpts, say you don't have enough information from the channels the user
-belongs to — never make things up. Keep answers short and to the point.`;
+belongs to — never make things up.
+
+When the excerpts DO contain relevant information, be thorough: synthesize
+ALL of the relevant excerpts into a complete answer, not just the single
+closest match. If several excerpts touch on different aspects of the
+question, cover each of them — don't drop information just to keep the
+answer short. It's fine for the answer to be a few sentences or a short
+list when the context supports it; being complete matters more than being brief.`;
 
 /**
- * Same two ports as OpenAIProvider, backed by Gemini instead. This is the
- * whole point of the ILLMProvider / IEmbeddingProvider interfaces: AskCopilot
- * never imports this file directly — AIProviderFactory picks it based on
- * AI_PROVIDER, so swapping providers is a config change, not a code change.
+ * Los mismos dos puertos que OpenAIProvider, pero respaldados por Gemini.
+ * Este es todo el sentido de las interfaces ILLMProvider / IEmbeddingProvider:
+ * AskCopilot nunca importa este archivo directamente — AIProviderFactory
+ * elige cuál usar según AI_PROVIDER, así que cambiar de proveedor es un
+ * cambio de configuración, no de código.
  */
 export class GeminiProvider implements ILLMProvider, IEmbeddingProvider {
   private readonly client: GoogleGenerativeAI;
@@ -38,14 +46,15 @@ export class GeminiProvider implements ILLMProvider, IEmbeddingProvider {
   }
 
   async embed(text: string): Promise<number[]> {
-    // ⚠️ Heads up: `rw_message_embeddings.embedding` is a fixed `vector(1536)`
-    // column (sized for OpenAI's text-embedding-3-small). Gemini's
-    // text-embedding-004 outputs 768 dimensions. Swapping the CHAT model is
-    // always a free, config-only change — swapping the EMBEDDING model is
-    // NOT, because the vector column's dimension is baked into the schema
-    // and the HNSW index. Doing it for real means either picking a Gemini
-    // model that outputs 1536 dims, padding/projecting the vector, or
-    // migrating the column — see DECISIONS.md for the full trade-off.
+    // ⚠️ Ojo: la columna `rw_message_embeddings.embedding` es un
+    // `vector(1536)` fijo (pensado para el text-embedding-3-small de
+    // OpenAI). El text-embedding-004 de Gemini da 768 dimensiones. Cambiar
+    // el modelo de CHAT siempre es gratis y solo de configuración —
+    // cambiar el modelo de EMBEDDINGS NO lo es, porque la dimensión de la
+    // columna vectorial está fija en el schema y en el índice HNSW. Hacerlo
+    // de verdad implica elegir un modelo de Gemini que dé 1536 dimensiones,
+    // rellenar/proyectar el vector, o migrar la columna — ver DECISIONS.md
+    // para el trade-off completo.
     const model = this.client.getGenerativeModel({ model: env.GEMINI_EMBEDDING_MODEL });
     const result = await model.embedContent(text);
     return result.embedding.values;

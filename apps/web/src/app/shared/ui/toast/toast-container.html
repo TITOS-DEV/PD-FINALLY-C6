@@ -1,0 +1,27 @@
+<div class="fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2 sm:bottom-6 sm:right-6">
+  @for (toast of toastService.toasts(); track toast.id) {
+    <div
+      class="flex items-start gap-3 rounded-fluent border bg-surface p-3 shadow-lg ring-1 ring-black/5"
+      [class.border-status-failed]="toast.type === 'error'"
+      [class.border-status-sent]="toast.type === 'success'"
+      [class.border-border]="toast.type === 'info'"
+      role="alert"
+    >
+      <span
+        class="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full"
+        [class.bg-status-failed]="toast.type === 'error'"
+        [class.bg-status-sent]="toast.type === 'success'"
+        [class.bg-brand-500]="toast.type === 'info'"
+      ></span>
+      <p class="flex-1 text-sm text-ink-1">{{ toast.messageKey | translate: toast.params }}</p>
+      <button
+        type="button"
+        class="text-ink-3 hover:text-ink-1"
+        (click)="toastService.dismiss(toast.id)"
+        [attr.aria-label]="'common.close' | translate"
+      >
+        ✕
+      </button>
+    </div>
+  }
+</div>

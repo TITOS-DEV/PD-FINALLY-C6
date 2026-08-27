@@ -4,14 +4,16 @@ import { ForbiddenError, ValidationError } from "../../src/domain/errors/AppErro
 import { IMessageRepository } from "../../src/domain/repositories/IMessageRepository";
 import { IChannelRepository } from "../../src/domain/repositories/IChannelRepository";
 
-// Unit tests stay at the use-case level and fake the repositories — no
-// Postgres, no network, no RLS involved. That's exactly why they run in
-// `pnpm test` (fast, no .env needed) while the e2e suite is a separate command.
+// Las pruebas unitarias se quedan a nivel de caso de uso y fingen los
+// repositorios — nada de Postgres, nada de red, nada de RLS de por medio.
+// Por eso corren en `pnpm test` (rápido, sin necesitar .env) mientras que
+// la suite e2e es un comando aparte.
 function buildDeps() {
   const messageRepository: IMessageRepository = {
     create: vi.fn(),
     findByChannel: vi.fn(),
     findById: vi.fn(),
+    updateContent: vi.fn(),
     softDelete: vi.fn(),
     markAsRead: vi.fn(),
   };
@@ -61,6 +63,7 @@ describe("SendMessage", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null,
+      authorName: "Test User",
     });
 
     const useCase = new SendMessage(messageRepository, channelRepository);

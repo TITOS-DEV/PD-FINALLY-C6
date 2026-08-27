@@ -1,0 +1,85 @@
+<div class="flex h-full flex-col border-l border-border bg-surface">
+  <header class="flex items-center gap-2 border-b border-border bg-brand-50 px-4 py-3">
+    <span aria-hidden="true">🤖</span>
+    <h2 class="text-sm font-semibold text-brand-700">{{ 'copilot.title' | translate }}</h2>
+  </header>
+
+  <div class="flex-1 overflow-y-auto p-4">
+    @if (turns().length === 0) {
+      <app-empty-state icon="✨" titleKey="copilot.empty.title" descriptionKey="copilot.empty.description" />
+    } @else {
+      <ul class="flex flex-col gap-4">
+        @for (turn of turns(); track turn.id) {
+          <li class="flex flex-col gap-1.5 border-b border-border pb-4 last:border-0">
+            <p class="text-sm font-semibold text-ink-1">{{ turn.question }}</p>
+
+            @if (turn.status === 'pending') {
+              <div class="flex items-center gap-2 text-sm text-ink-3">
+                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500"></span>
+                {{ 'copilot.thinking' | translate }}
+              </div>
+            } @else if (turn.status === 'failed') {
+              <div class="flex items-center gap-2 text-sm text-status-failed">
+                <span>{{ 'copilot.errors.askFailed' | translate }}</span>
+                <button type="button" class="font-medium underline" (click)="retry(turn.id)">
+                  {{ 'chat.status.retry' | translate }}
+                </button>
+              </div>
+            } @else {
+              <div class="flex max-w-full flex-col gap-2 text-sm text-ink-1">
+                <p class="whitespace-pre-wrap">{{ turn.answer }}</p>
+
+                @if (turn.sources.length >= minSourcesToTrust) {
+                  <div class="mt-1 flex flex-col gap-1.5">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
+                      {{ 'copilot.sources.title' | translate }}
+                    </span>
+                    @for (source of turn.sources; track source.messageId) {
+                      <div class="rounded-fluent border border-border bg-surface-muted p-2 text-xs text-ink-2">
+                        <p class="line-clamp-2 italic">"{{ source.excerpt }}"</p>
+                        <p class="mt-1 text-[11px] text-ink-3">
+                          {{ 'copilot.sources.by' | translate: { author: source.authorName } }} ·
+                          {{ source.similarity * 100 | number: '1.0-0' }}% {{ 'copilot.sources.match' | translate }}
+                        </p>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <!-- Respuesta negativa explícita: no hay ni un mensaje real detrás de
+                       esta respuesta, así que lo decimos con un aviso aparte en vez de
+                       confiar solo en que el texto de la IA lo aclare bien. -->
+                  <p class="mt-1 rounded-fluent bg-status-pending/10 px-2 py-1.5 text-xs font-medium text-status-pending">
+                    ⚠️ {{ 'copilot.noSources' | translate }}
+                  </p>
+                }
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="border-t border-border p-3">
+    <div class="flex items-end gap-2 rounded-fluent-lg border border-border bg-surface-muted p-2 focus-within:border-brand-500">
+      <textarea
+        class="max-h-24 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-ink-1 outline-none placeholder:text-ink-3"
+        rows="1"
+        [attr.aria-label]="'copilot.placeholder' | translate"
+        [placeholder]="'copilot.placeholder' | translate"
+        [ngModel]="question()"
+        (ngModelChange)="question.set($event)"
+        (keydown)="onKeydown($event)"
+        [disabled]="isAsking()"
+      ></textarea>
+      <button
+        type="button"
+        class="shrink-0 rounded-fluent bg-brand-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-border disabled:text-ink-3"
+        [disabled]="question().trim().length === 0 || isAsking()"
+        (click)="ask()"
+      >
+        {{ 'copilot.ask' | translate }}
+      </button>
+    </div>
+  </div>
+</div>

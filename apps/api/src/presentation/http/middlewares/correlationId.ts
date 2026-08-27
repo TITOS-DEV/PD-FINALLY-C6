@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import { NextFunction, Request, Response } from "express";
 
 /**
- * Every request gets an `X-Correlation-ID` — reused if the caller already
- * sent one (handy when a frontend or another service wants to trace a
- * request across systems), generated otherwise. We echo it back on the
- * response and stamp it on every log line for that request, so grepping
- * one ID in the logs gives you the full story of a single request.
+ * Cada request recibe un `X-Correlation-ID` — se reutiliza si quien llama ya
+ * mandó uno (útil cuando un frontend u otro servicio quiere trazar una
+ * request a través de varios sistemas), o se genera si no. Lo devolvemos en
+ * la respuesta y lo estampamos en cada línea de log de esa request, así
+ * buscar un solo ID en los logs da la historia completa de una request.
  */
 export function correlationId(req: Request, res: Response, next: NextFunction): void {
   const incoming = req.header("X-Correlation-ID");

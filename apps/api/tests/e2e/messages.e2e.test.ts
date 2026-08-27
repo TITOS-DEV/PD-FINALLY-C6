@@ -26,7 +26,7 @@ describe("Messages flow (e2e)", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(list.status).toBe(200);
-    expect(list.body.messages[0].content).toBe(content); // newest first
+    expect(list.body.messages[0].content).toBe(content); // el más nuevo primero
   });
 
   it("paginates by keyset instead of OFFSET — the cursor always yields older, non-repeating rows", async () => {
@@ -55,7 +55,7 @@ describe("Messages flow (e2e)", () => {
   });
 
   it("blocks reading a channel the user doesn't belong to, even with a valid token", async () => {
-    // The seed only puts jhonatan and sofia in "Desarrollo Cohorte 6" — admin is not a member.
+    // El seed solo pone a jhonatan y sofia en "Desarrollo Cohorte 6" — admin no es miembro.
     const token = await loginAs(SEED_USERS.admin.email);
 
     const res = await request(app)
@@ -85,5 +85,57 @@ describe("Messages flow (e2e)", () => {
       .send({ content: "   " });
 
     expect(res.status).toBe(400);
+  });
+
+  it("lets the author edit their own message, but nobody else", async () => {
+    const authorToken = await loginAs(SEED_USERS.jhonatan.email);
+    const otherToken = await loginAs(SEED_USERS.sofia.email);
+
+    const sent = await request(app)
+      .post(`/api/channels/${SEED_CHANNELS.general}/messages`)
+      .set("Authorization", `Bearer ${authorToken}`)
+      .send({ content: "original" });
+    const messageId = sent.body.message.id as string;
+
+    const blocked = await request(app)
+      .patch(`/api/messages/${messageId}`)
+      .set("Authorization", `Bearer ${otherToken}`)
+      .send({ content: "hackeado" });
+    expect(blocked.status).toBe(403);
+
+    const edited = await request(app)
+      .patch(`/api/messages/${messageId}`)
+      .set("Authorization", `Bearer ${authorToken}`)
+      .send({ content: "editado" });
+    expect(edited.status).toBe(200);
+    expect(edited.body.message.content).toBe("editado");
+    // updatedAt tiene que moverse — es lo que el frontend usa para mostrar "(editado)".
+    expect(edited.body.message.updatedAt).not.toBe(sent.body.message.updatedAt);
+  });
+
+  it("lets the author soft-delete their own message, and it disappears from the history", async () => {
+    const authorToken = await loginAs(SEED_USERS.jhonatan.email);
+    const otherToken = await loginAs(SEED_USERS.sofia.email);
+
+    const sent = await request(app)
+      .post(`/api/channels/${SEED_CHANNELS.general}/messages`)
+      .set("Authorization", `Bearer ${authorToken}`)
+      .send({ content: `para borrar ${Date.now()}` });
+    const messageId = sent.body.message.id as string;
+
+    const blocked = await request(app)
+      .delete(`/api/messages/${messageId}`)
+      .set("Authorization", `Bearer ${otherToken}`);
+    expect(blocked.status).toBe(403);
+
+    const deleted = await request(app)
+      .delete(`/api/messages/${messageId}`)
+      .set("Authorization", `Bearer ${authorToken}`);
+    expect(deleted.status).toBe(204);
+
+    const list = await request(app)
+      .get(`/api/channels/${SEED_CHANNELS.general}/messages`)
+      .set("Authorization", `Bearer ${authorToken}`);
+    expect(list.body.messages.some((m: { id: string }) => m.id === messageId)).toBe(false);
   });
 });

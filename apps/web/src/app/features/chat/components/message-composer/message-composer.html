@@ -1,0 +1,22 @@
+<div class="border-t border-border bg-surface p-3">
+  <div class="flex items-end gap-2 rounded-fluent-lg border border-border bg-surface-muted p-2 focus-within:border-brand-500">
+    <textarea
+      class="max-h-32 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-ink-1 outline-none placeholder:text-ink-3"
+      rows="1"
+      [maxLength]="maxLength"
+      [attr.aria-label]="'chat.composer.placeholder' | translate"
+      [placeholder]="'chat.composer.placeholder' | translate"
+      [ngModel]="content()"
+      (ngModelChange)="content.set($event)"
+      (keydown)="onKeydown($event)"
+    ></textarea>
+    <button
+      type="button"
+      class="shrink-0 rounded-fluent bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-border disabled:text-ink-3"
+      [disabled]="content().trim().length === 0"
+      (click)="send()"
+    >
+      {{ 'chat.composer.send' | translate }}
+    </button>
+  </div>
+</div>

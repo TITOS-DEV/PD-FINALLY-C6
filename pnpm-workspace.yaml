@@ -10,3 +10,10 @@ packages:
 # Docker or CI, which is exactly what broke the API's Docker build.
 allowBuilds:
   esbuild: true
+  # @parcel/watcher: file-watching native binding used by Angular's dev
+  # server/build tooling. lmdb + msgpackr-extract: fast embedded cache used
+  # by Angular CLI's persistent build cache. All three just install a
+  # prebuilt binary for the current platform — same deal as esbuild above.
+  '@parcel/watcher': true
+  lmdb: true
+  msgpackr-extract: true

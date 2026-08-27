@@ -114,3 +114,81 @@ Dividí las pruebas en dos grupos bien distintos, cada uno con su propósito:
 * **End-to-end (`tests/e2e`, corren con `pnpm test:e2e`):** estas sí levantan la app de Express completa (con `supertest`) y pegan contra mi proyecto real de Supabase, usando los usuarios que ya vienen en el seed. Decidí no montar un Postgres de mentira aparte porque quería probar el mecanismo completo — JWT propio, RLS activándose de verdad, políticas bloqueando lo que tienen que bloquear — y eso solo se puede confirmar contra una base de datos real con RLS habilitado, no con un doble de prueba.
 * **Por qué elegí Vitest:** corre TypeScript directo sin configuración rara, es rápido, y la sintaxis (`describe`, `it`, `expect`) es casi idéntica a Jest, así que si alguien más lo lee no tiene curva de aprendizaje.
 * **Un ejemplo concreto de por qué valía la pena tener e2e:** hay una prueba en `messages.e2e.test.ts` que loguea como el usuario `admin@riwi.io` (que en el seed NO es miembro del canal "Desarrollo Cohorte 6") e intenta leer los mensajes de ese canal. Si algún día rompo por accidente la política RLS de `rw_messages_select`, o el `isMember()` que valido antes en el caso de uso, esta prueba se cae inmediatamente — es la única forma real de confirmar que la seguridad de datos funciona de punta a punta y no solo "en la teoría".
+
+---
+
+## 12. Frontend: por qué Angular con Signals y Standalone (y una aclaración de versión)
+
+Para `apps/web` usé Angular en su forma más moderna: **componentes standalone** (nada de `NgModule`), **Signals** para el estado local, y `@angular/build:application` (el builder nuevo basado en esbuild/Vite).
+
+* **Por qué Angular y no otra cosa:** ya venía siendo el framework que pedía la prueba técnica, pero además tiene sentido para este proyecto puntual: trae Router, HttpClient, formularios e inyección de dependencias todo integrado, sin tener que salir a elegir/armar cada pieza por separado como tocaría con una librería más chica.
+* **Aclaración honesta de versión:** el enunciado pedía "la última versión estable". Al momento de armar el proyecto, la última estable de Angular (v22) exige Node ≥22.22.3, ≥24.15.0 o ≥26 — y el entorno donde armé y probé todo esto tiene Node 24.3.0, que queda justo por debajo de ese corte. En vez de generar algo que no podía ni compilar ni correr acá, usé **Angular 21.2** (la versión estable inmediatamente anterior, con soporte activo), que sí corre con Node ≥24.0.0 sin restricción de parche. Si tu máquina tiene Node 24.15+ o 26+, actualizar es un solo comando: `ng update @angular/core@22 @angular/cli@22`.
+* **Standalone en vez de NgModules:** cada componente declara sus propios `imports` (ver cualquier `*.ts` de `src/app`) en vez de depender de un módulo central. Para un proyecto de este tamaño, los NgModules solo agregarían un nivel más de indirección sin aportar nada — cada componente ya deja clarísimo de qué depende con solo mirar su decorador.
+
+---
+
+## 13. Cuándo usé Signals y cuándo RxJS (no elegí uno solo para todo)
+
+Podría haber intentado hacer *todo* con uno de los dos, pero terminé usando cada uno para lo que mejor le queda:
+
+* **Signals para el estado que vive en memoria:** `ChatStore` (los mensajes del canal activo, si está cargando, el cursor de paginación), `AuthService` (la sesión actual), `I18nService` (el idioma activo). Todo esto es "un valor que cambia con el tiempo y que la UI necesita leer reactivamente" — exactamente para lo que Signals están hechos, y sin necesitar `| async` en cada template ni preocuparme por desuscribirme en `ngOnDestroy`.
+* **RxJS para todo lo que es un flujo async con más de un evento en el tiempo:** las llamadas HTTP (`HttpClient` sigue devolviendo `Observable`), el interceptor de auth (necesita `catchError`, `switchMap`, `filter`, cosas que Signals no resuelven bien), y los mensajes que llegan por WebSocket (`SocketService.onNewMessage()` es un stream que nunca "termina", ideal para Observable).
+* **La regla práctica que seguí:** un servicio arma sus llamadas HTTP con RxJS, pero en el momento en que el dato "aterriza", lo guardo en un signal (`.subscribe(res => this.messages.set(...))`). Así el resto de la app (los componentes) solo lee signals — no tiene que saber si algo vino de un Observable, de un WebSocket o de otro lado.
+
+---
+
+## 14. Cómo no perder la posición del scroll al cargar mensajes viejos (keyset del lado del frontend)
+
+El backend pagina por keyset (ver punto 3) — pero eso solo resuelve la mitad del problema. Del lado del navegador, si simplemente insertás mensajes viejos AL PRINCIPIO de la lista mientras la persona está leyendo, el navegador agranda el contenido por arriba y la pantalla "salta", perdiendo la referencia visual de lo que se estaba leyendo. La solución completa está en `ChatContainerComponent` (`loadOlderMessages()`):
+
+1. Antes de pedir la página vieja, guardo `scrollHeight` y `scrollTop` del contenedor tal como están en ese momento.
+2. Le pido a `ChatStore` la página anterior (`loadMoreMessages()`), que la pega al principio del array.
+3. Uso `afterNextRender()` — la forma correcta en Angular moderno de decir "corré esto recién cuando el DOM YA se actualizó de verdad", en vez de un `setTimeout` a ciegas cruzando los dedos.
+4. Ya con el DOM actualizado, mido cuánto creció el contenido (`scrollHeight` nuevo menos el viejo) y se lo sumo al `scrollTop` que tenía guardado.
+
+El resultado: la persona sigue viendo exactamente el mismo mensaje en la misma posición de la pantalla, como si los mensajes viejos ya hubieran estado ahí desde siempre.
+
+---
+
+## 15. Separación modular de la UI, estilo Fluent
+
+Organicé `src/app` en carpetas por función, no por tipo de archivo:
+
+```
+core/         → servicios "de toda la app": auth, i18n, WebSocket (nada de esto es visual)
+features/     → una carpeta por funcionalidad (chat, copilot, profile, auth), cada una con sus propios components/services/models
+shared/ui/    → piezas visuales chicas y sin opinión de negocio (Avatar, EmptyState, MessageSkeleton, Toast) que cualquier feature puede usar
+```
+
+* **Por qué así y no todo en una carpeta `components/`:** porque así, para tocar todo lo relacionado al copiloto, solo entro a `features/copilot/` — no tengo que ir a buscar sus piezas desperdigadas entre las de chat o las de perfil.
+* **El estilo Fluent (Teams/Outlook) quedó centralizado en un solo lugar:** todos los colores, radios de borde y la tipografía viven como tokens de Tailwind v4 en `src/styles.css` (`--color-brand-500`, `--radius-fluent`, etc.), no repetidos como códigos de color sueltos en cada componente. Si mañana cambia la paleta de marca, se edita un archivo, no cuarenta.
+* **`shared/ui` nunca importa de `features/`:** las piezas compartidas no saben nada de mensajes ni de canales — reciben todo por `input()`. Eso es lo que las hace reutilizables de verdad, y evita que un cambio en el chat rompa por accidente el panel del copiloto.
+
+---
+
+## 16. Interceptor de auth con refresh automático (y por qué es una sola función, no una clase)
+
+`authInterceptor` es un interceptor **funcional** (`HttpInterceptorFn`), no una clase con `@Injectable`. Angular dejó ese estilo como el recomendado desde hace un tiempo porque es menos código para lo mismo — pero eso trae una particularidad: una función no tiene "propiedades de instancia" donde guardar estado. La solución fue declarar `isRefreshing` y `refreshedToken$` como variables a nivel de MÓDULO (fuera de la función), que cumplen exactamente ese rol porque el archivo se carga una sola vez en toda la vida de la app.
+
+* **Por qué hace falta ese estado compartido:** si 5 llamadas HTTP fallan con 401 al mismo tiempo (el access token expiró y justo hay varias requests en vuelo), sin coordinación las 5 dispararían su propio refresh en paralelo. Eso no solo es ineficiente — **rompería la rotación de tokens del backend**, que solo permite un refresh token activo a la vez (ver punto 6). Con el flag `isRefreshing`, la primera request hace el refresh; las otras 4 esperan el resultado en `refreshedToken$` y reintentan con el token nuevo apenas llega.
+* **Qué pasa si el refresh también falla:** significa que el refresh token ya venció o fue revocado (por ejemplo, alguien inició sesión desde otro dispositivo). Ahí no hay nada que recuperar — se cierra la sesión local y se manda a la persona de vuelta a `/login`.
+
+---
+
+## 17. Cero texto hardcodeado: ngx-translate en vez del i18n nativo de Angular
+
+El enunciado prohibía texto incrustado en los componentes, y había dos caminos: el i18n nativo de Angular (`@angular/localize`) o `ngx-translate`. Elegí **ngx-translate**.
+
+* **La razón principal:** el i18n nativo de Angular resuelve el idioma en **tiempo de build** — necesitarías compilar la app una vez por idioma y sevir bundles distintos según la URL o el dominio. Eso es genial para SEO multi-idioma, pero acá lo que se pide es un selector de idioma que cambie la UI **al toque, sin recargar la página** (ver el switch ES/EN en `ProfileCard`) — eso es exactamente lo que ngx-translate resuelve, cargando el diccionario correspondiente en tiempo de ejecución.
+* **`I18nService` es la única puerta de entrada:** ningún componente importa `TranslateService` directo ni decide un string en español/inglés por su cuenta. Todo el texto sale de `public/i18n/es.json` / `en.json` a través del pipe `translate`, y `I18nService` es quien decide (y persiste en `localStorage`) cuál de los dos diccionarios está activo.
+* **`provideAppInitializer` evita el parpadeo:** cargar un diccionario es una llamada HTTP, o sea que es asíncrona. Sin esperar a que termine antes de pintar la app, la persona vería por una fracción de segundo las claves crudas (`chat.empty.title`) en vez del texto real. `app.config.ts` espera ese primer `initialize()` antes de terminar de arrancar.
+
+---
+
+## 18. Manejo de errores en el frontend: Toasts en vez de silencio (o alerts feos)
+
+Del lado del backend, cada error ya llega con un `code` y un `statusCode` consistentes (ver punto 10). Del lado del frontend, decidí no dejar esos errores morir en la consola ni usar `alert()` — hice un `ToastService` chiquito, basado en un signal con una cola de notificaciones, que cualquier servicio puede llamar (`toastService.error('chat.errors.sendFailed')`) sin acoplarse a ningún componente visual.
+
+* **Por qué una cola y no un solo mensaje:** si fallan dos cosas casi al mismo tiempo (por ejemplo, mandar un mensaje Y preguntarle al copiloto), las dos notificaciones tienen que poder convivir en pantalla en vez de que la segunda tape a la primera.
+* **Se autodestruyen solas a los 5 segundos** (`dismiss()` con `setTimeout`), pero también se pueden cerrar a mano — no hay que forzar a nadie a esperar a que desaparezcan.
+* **Los mensajes de error de un mensaje fallido no solo van a un toast:** el mensaje en sí se queda visible en el chat marcado como `failed`, con un botón de "Reintentar" al lado (ver `ChatContainerComponent`). El toast avisa que algo pasó; el estado del mensaje deja claro *cuál* mensaje fue y da una forma inmediata de arreglarlo.

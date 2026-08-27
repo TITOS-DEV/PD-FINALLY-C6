@@ -3,7 +3,7 @@ import { Server as SocketIOServer, Socket } from "socket.io";
 import { JwtService } from "../../infrastructure/auth/JwtService";
 import { withRLSContext } from "../../infrastructure/db/withRLSContext";
 import { buildAuthenticatedContainer } from "../container";
-import { messageEvents, MESSAGE_CREATED } from "./messageEvents";
+import { MessageDeletedPayload, messageEvents, MESSAGE_CREATED, MESSAGE_DELETED, MESSAGE_UPDATED } from "./messageEvents";
 import { logger } from "../../infrastructure/logging/logger";
 import { env } from "../../infrastructure/config/env";
 import { Message } from "../../domain/entities/Message";
@@ -11,11 +11,12 @@ import { Message } from "../../domain/entities/Message";
 const jwtService = new JwtService();
 
 /**
- * Realtime layer. Auth here mirrors the HTTP `authMiddleware`: the same
- * access token, just read from the handshake instead of a header. Once
- * connected, a socket can ask to `join:channel` — we check membership with
- * the same RLS-scoped repository the REST API uses, so "can this socket see
- * this channel" always agrees with "can this user's HTTP calls see it".
+ * Capa de tiempo real. La autenticación acá refleja al `authMiddleware` de
+ * HTTP: el mismo access token, solo que leído del handshake en vez de un
+ * header. Una vez conectado, un socket puede pedir `join:channel` —
+ * chequeamos membresía con el mismo repositorio escopeado por RLS que usa
+ * la API REST, así que "esto puede ver este canal por socket" siempre
+ * coincide con "esto puede verlo por HTTP".
  */
 export function attachSocketServer(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
@@ -64,10 +65,19 @@ export function attachSocketServer(httpServer: HttpServer): SocketIOServer {
     });
   });
 
-  // Bridge from the HTTP layer: whenever MessageController saves a message,
-  // it emits here — we just broadcast it to whoever joined that channel's room.
+  // Puente desde la capa HTTP: cada vez que MessageController guarda un
+  // mensaje, emite acá — nosotros solo lo transmitimos a quien se haya
+  // unido a la sala de ese canal.
   messageEvents.on(MESSAGE_CREATED, (message: Message) => {
     io.to(roomFor(message.channelId)).emit("message:new", message);
+  });
+
+  messageEvents.on(MESSAGE_UPDATED, (message: Message) => {
+    io.to(roomFor(message.channelId)).emit("message:updated", message);
+  });
+
+  messageEvents.on(MESSAGE_DELETED, (payload: MessageDeletedPayload) => {
+    io.to(roomFor(payload.channelId)).emit("message:deleted", payload);
   });
 
   return io;

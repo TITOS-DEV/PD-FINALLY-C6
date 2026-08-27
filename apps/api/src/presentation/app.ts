@@ -7,9 +7,9 @@ import { apiRouter } from "./http/routes";
 import { env } from "../infrastructure/config/env";
 
 /**
- * Builds the Express app WITHOUT starting an HTTP server or Socket.io.
- * Kept separate from server.ts so e2e tests can `supertest(createApp())`
- * directly, with no open port and no socket lifecycle to clean up.
+ * Arma la app de Express SIN levantar un servidor HTTP ni Socket.io.
+ * Se deja separado de server.ts para que los tests e2e puedan hacer
+ * `supertest(createApp())` directo, sin puerto abierto ni ciclo de vida de sockets que limpiar.
  */
 export function createApp(): Express {
   const app = express();
@@ -24,7 +24,7 @@ export function createApp(): Express {
   app.use("/api", apiRouter);
 
   app.use(notFoundHandler);
-  app.use(errorHandler); // must be last: Express only treats a 4-arg function as an error handler
+  app.use(errorHandler); // tiene que ir al final: Express solo trata una función de 4 argumentos como manejador de errores
 
   return app;
 }

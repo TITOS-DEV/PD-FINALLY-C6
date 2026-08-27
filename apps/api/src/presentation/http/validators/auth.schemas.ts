@@ -3,7 +3,7 @@ import { z } from "zod";
 export const registerSchema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().email().max(255),
-  password: z.string().min(8).max(72), // bcrypt silently truncates beyond 72 bytes
+  password: z.string().min(8).max(72), // bcrypt trunca en silencio pasados los 72 bytes
 });
 
 export const loginSchema = z.object({

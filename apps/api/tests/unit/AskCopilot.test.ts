@@ -27,16 +27,16 @@ describe("AskCopilot", () => {
     const { embeddingProvider, llmProvider, embeddingRepository } = buildDeps();
     vi.mocked(embeddingProvider.embed).mockResolvedValue([0.1, 0.2, 0.3]);
     vi.mocked(embeddingRepository.findSimilarInUserChannels).mockResolvedValue([
-      { messageId: "m1", channelId: "c1", content: "strong match", authorName: "Ana", createdAt: new Date(), similarity: 0.92 },
-      { messageId: "m2", channelId: "c1", content: "weak match", authorName: "Ana", createdAt: new Date(), similarity: 0.4 },
+      { messageId: "m1", channelId: "c1", content: "strong match", authorName: "Ana", createdAt: new Date(), similarity: 0.85 },
+      { messageId: "m2", channelId: "c1", content: "weak match", authorName: "Ana", createdAt: new Date(), similarity: 0.2 },
     ]);
     vi.mocked(llmProvider.generateAnswer).mockResolvedValue("La respuesta es X");
 
     const useCase = new AskCopilot(embeddingProvider, llmProvider, embeddingRepository);
     const result = await useCase.execute({ userId: "u1", question: "¿qué dijo Ana?" });
 
-    // The weak match must never reach the LLM as context, and must never
-    // show up as a "source" the frontend attributes the answer to.
+    // La coincidencia débil no debe llegar nunca al LLM como contexto, ni
+    // aparecer nunca como "fuente" a la que el frontend le atribuya la respuesta.
     expect(llmProvider.generateAnswer).toHaveBeenCalledWith("¿qué dijo Ana?", ["strong match"]);
     expect(result.sources).toHaveLength(1);
     expect(result.sources[0]?.messageId).toBe("m1");

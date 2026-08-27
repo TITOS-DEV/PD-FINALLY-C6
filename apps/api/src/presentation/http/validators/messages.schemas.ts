@@ -8,10 +8,18 @@ export const channelParamsSchema = z.object({
   channelId: z.string().uuid(),
 });
 
+export const messageParamsSchema = z.object({
+  messageId: z.string().uuid(),
+});
+
+export const editMessageSchema = z.object({
+  content: z.string().trim().min(1).max(4000),
+});
+
 /**
- * Keyset cursor arrives as two query params. Both must be present together
- * or absent together — `.refine` enforces that instead of leaving it as an
- * implicit contract only the frontend knows about.
+ * El cursor de keyset llega como dos query params. Los dos tienen que venir
+ * juntos o ninguno — `.refine` obliga eso en vez de dejarlo como un
+ * contrato implícito que solo conoce el frontend.
  */
 export const getMessagesQuerySchema = z
   .object({

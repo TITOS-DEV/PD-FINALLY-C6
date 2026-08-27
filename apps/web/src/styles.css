@@ -1,0 +1,131 @@
+/* Estilos globales de la app.
+ *
+ * Estética tipo Slack/Discord: una barra de navegación oscura (canales +
+ * perfil) contra un área de contenido clara (el chat en sí, el copiloto).
+ * Ese contraste oscuro/claro es lo que le da a la app una identidad propia
+ * en vez de sentirse "un formulario más" — y de paso es donde vive la
+ * mayor parte del azul de marca, sin que se vuelva un empapelado de color
+ * en las zonas donde la gente en realidad tiene que leer texto largo rato
+ * (los mensajes).
+ */
+@import "tailwindcss";
+
+@theme {
+  /* Azul de marca. Escala completa para poder usarlo tanto en superficies
+     oscuras (sidebar) como en acentos sobre fondo claro (botones, enlaces,
+     el borde del canal activo). */
+  --color-brand-50: #eef5ff;
+  --color-brand-100: #dbe9fe;
+  --color-brand-200: #bcd7fd;
+  --color-brand-300: #8dbdfb;
+  --color-brand-400: #579bf6;
+  --color-brand-500: #1f6feb;
+  --color-brand-600: #1358c9;
+  --color-brand-700: #0f4696;
+  --color-brand-800: #0d3872;
+  --color-brand-900: #0a2a56;
+
+  /* Grises neutros para el área de CONTENIDO clara (chat, copiloto, login). */
+  --color-ink-1: #1a1f27; /* texto principal */
+  --color-ink-2: #4b5566; /* texto secundario */
+  --color-ink-3: #8892a0; /* texto terciario / placeholders */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f9fc;
+  --color-border: #e3e8ef;
+
+  /* Paleta oscura, solo para la barra de navegación (sidebar de canales +
+     perfil, la barra superior en mobile, y el panel de marca del login).
+     Es un azul-marino oscuro, no negro puro ni gris — sigue siendo parte
+     de la misma familia de color que --color-brand-*. */
+  --color-nav-bg: #0f1b2e;
+  --color-nav-bg-elevated: #16233a;
+  --color-nav-hover: #1c2b45;
+  --color-nav-active: var(--color-brand-600);
+  --color-nav-border: #1f2c42;
+  --color-nav-text: #d3dbe6;
+  --color-nav-text-muted: #7c8ba1;
+
+  /* Estados de los mensajes: pendiente, enviado, fallido. */
+  --color-status-pending: #b98900;
+  --color-status-sent: #107c41;
+  --color-status-failed: #c4314b;
+
+  --font-sans:
+    "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  --radius-fluent-sm: 6px;
+  --radius-fluent: 10px;
+  --radius-fluent-lg: 14px;
+}
+
+/* Reset chiquito, solo lo esencial — Tailwind ya trae su propio preflight. */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink-1);
+  background-color: var(--color-surface-muted);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar delgada y a tono con el color de fondo de cada zona (clara u
+ * oscura) en vez de la barra gris genérica del sistema operativo. Firefox
+ * solo entiende `scrollbar-color` (dos colores planos); Chrome/Edge/Safari
+ * entienden los pseudo-elementos `::-webkit-scrollbar-*`, que es lo que
+ * realmente permite un thumb angosto y redondeado. Ponemos las dos reglas
+ * para que se vea bien en cualquier navegador.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-ink-3);
+}
+
+/* Dentro de zonas oscuras (sidebar) la barra clara de arriba desaparecería
+ * contra el fondo oscuro — acá la reemplazamos por una versión clara semitransparente. */
+.scrollbar-on-dark {
+  scrollbar-color: var(--color-nav-hover) transparent;
+}
+
+.scrollbar-on-dark::-webkit-scrollbar-thumb {
+  background-color: var(--color-nav-hover);
+}
+
+.scrollbar-on-dark::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-nav-text-muted);
+}
+
+/* Utilidades de gradiente en azul de marca — se usan con cuidado, solo en
+ * el panel de bienvenida del login y algún botón puntual, no en toda la
+ * navegación (que ahora es un azul-marino sólido, más en línea con
+ * Slack/Discord que con un degradado tipo SaaS). */
+.bg-gradient-brand {
+  background-image: linear-gradient(160deg, var(--color-brand-600), var(--color-nav-bg));
+}
+
+.shadow-glow-brand {
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--color-brand-500) 45%, transparent);
+}

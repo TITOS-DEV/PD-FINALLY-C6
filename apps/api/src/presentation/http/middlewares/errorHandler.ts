@@ -3,20 +3,20 @@ import { AppError } from "../../../domain/errors/AppError";
 import { logger } from "../../../infrastructure/logging/logger";
 
 /**
- * The single place in the whole app that decides how an error becomes an
- * HTTP response. Everything upstream (use cases, repositories, controllers)
- * just throws — this is the safety net.
+ * El único lugar de toda la app que decide cómo un error se convierte en
+ * una respuesta HTTP. Todo lo de arriba (casos de uso, repositorios,
+ * controllers) simplemente hace `throw` — esto es la red de seguridad.
  *
- * Two paths:
- *   1. Known error (AppError and subclasses): we trust its statusCode/code/
- *      message and send them straight to the client.
- *   2. Anything else (a bug, a driver throwing a raw pg error, etc.): we
- *      log the full error server-side but only ever send a generic 500 to
- *      the client — never leak stack traces or SQL error messages to the
- *      outside world.
+ * Dos caminos:
+ *   1. Error conocido (AppError y sus hijas): confiamos en su
+ *      statusCode/code/message y se los mandamos tal cual al cliente.
+ *   2. Cualquier otra cosa (un bug, un error crudo de pg reventando, lo que
+ *      sea): lo logueamos completo del lado del servidor, pero al cliente
+ *      nunca le mandamos eso tal cual — nunca se filtra un stack trace ni
+ *      un mensaje de SQL hacia afuera.
  *
- * Must be registered LAST, after all routes (that's an Express requirement
- * for 4-arg middlewares to be treated as error handlers).
+ * Tiene que registrarse AL FINAL, después de todas las rutas (es un
+ * requisito de Express: solo trata una función de 4 argumentos como manejador de errores).
  */
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   const correlationId = req.correlationId;
@@ -35,7 +35,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   });
 }
 
-/** 404 fallback for routes that don't exist at all. */
+/** Fallback 404 para rutas que directamente no existen. */
 export function notFoundHandler(req: Request, res: Response): void {
   res.status(404).json({
     error: { code: "NOT_FOUND", message: `No route for ${req.method} ${req.originalUrl}`, correlationId: req.correlationId },
