@@ -1,3 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm 11's supply-chain policy blocks a dependency's install/postinstall
+# script by default unless it's explicitly allow-listed here. esbuild
+# (a transitive dep of tsx/vitest) needs its postinstall to fetch the
+# correct native binary for the platform — without this, `pnpm install`
+# exits non-zero (not just a warning) in non-interactive environments like
+# Docker or CI, which is exactly what broke the API's Docker build.
+allowBuilds:
+  esbuild: true

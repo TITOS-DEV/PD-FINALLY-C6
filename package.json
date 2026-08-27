@@ -1,0 +1,17 @@
+{
+  "name": "riwi-internal-messenger",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Riwi Internal Messenger - monorepo (backend API, frontend web)",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "dev": "pnpm --filter @riwi/api dev",
+    "build": "pnpm --filter @riwi/api build",
+    "start": "pnpm --filter @riwi/api start",
+    "test": "pnpm --filter @riwi/api test",
+    "test:e2e": "pnpm --filter @riwi/api test:e2e"
+  }
+}
