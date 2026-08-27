@@ -3,11 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ChatStore } from '../../services/chat-store';
 
-const MAX_LENGTH = 4000; // mismo límite que valida el backend (ver sendMessageSchema)
+const MAX_LENGTH = 4000; // matching backend validation schema (sendMessageSchema)
 
 /**
- * Caja de texto para escribir mensajes. Enter manda, Shift+Enter agrega un
- * salto de línea — el atajo típico de cualquier app de mensajería.
+ * Message input composer component.
+ * Enter sends message, Shift+Enter inserts newline.
  */
 @Component({
   selector: 'app-message-composer',
@@ -20,7 +20,7 @@ export class MessageComposer {
 
   protected readonly content = signal('');
   protected readonly maxLength = MAX_LENGTH;
-  /** Avisa al contenedor que se mandó un mensaje propio, para que fuerce el scroll al fondo. */
+  /** Emits event when message is sent to trigger auto-scroll to bottom. */
   readonly sent = output<void>();
 
   protected onKeydown(event: KeyboardEvent): void {

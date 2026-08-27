@@ -21,65 +21,61 @@ export interface AskCopilotOutput {
 }
 
 /**
- * Cuántos mensajes como máximo le pasamos al LLM de contexto. Lo subimos de
- * 8 a 16: con solo 8, preguntas amplias ("¿de qué se ha hablado en mis
- * canales?") se quedaban cortas porque el corte de arriba descartaba
- * mensajes relevantes que sí cabían en la ventana de contexto del modelo
- * sin problema — 16 mensajes cortos de chat es nada para un modelo como
- * gpt-4o-mini, así que no hay razón real para ser tan tacaños acá.
+ * How many messages, at most, we hand the LLM as context. Raised from 8 to
+ * 16: with only 8, broad questions ("what's been discussed in my
+ * channels?") came up short, because the cutoff below was dropping
+ * relevant messages that would have easily fit in the model's context
+ * window anyway — 16 short chat messages is nothing for a model like
+ * gpt-4o-mini, so there's no real reason to be that stingy here.
  */
 const MAX_RETRIEVED_MESSAGES = 16;
 /**
- * Por debajo de esto, una coincidencia probablemente es ruido, no una
- * respuesta de verdad. El valor está calibrado con datos reales, no
- * adivinado: con `text-embedding-3-small` (textos cortos, en español, tipo
- * chat informal), un mensaje genuinamente relacionado con la pregunta pero
- * con palabras distintas típicamente cae entre 0.4 y 0.6 de similitud
- * coseno — NO cerca de 1, eso solo pasa con texto casi idéntico. Un umbral
- * de 0.75 (lo que había acá antes) descartaba respuestas correctas todo el
- * tiempo: en una prueba real, la pregunta "¿qué se dijo sobre RLS?" contra
- * el mensaje real sobre RLS dio 0.496 de similitud — muy por encima de los
- * mensajes sin relación (0.15–0.29 en la misma prueba) pero por debajo de
- * 0.75, así que el copiloto contestaba "no tengo información" incluso
- * teniendo la respuesta correcta indexada. Si cambias de modelo de
- * embeddings, conviene volver a calibrar este número con datos reales en
- * vez de copiar este mismo valor a ciegas.
+ * Below this, a match is probably noise, not a real answer. The value is
+ * calibrated with real data, not guessed: with `text-embedding-3-small`
+ * (short, Spanish, informal chat text), a message genuinely related to the
+ * question but worded differently typically lands between 0.4 and 0.6
+ * cosine similarity — NOT close to 1, that only happens with near-identical
+ * text. A threshold of 0.75 (what used to be here) discarded correct
+ * answers all the time: in a real test, the question "what was said about
+ * RLS?" scored 0.496 against the actual message about RLS — well above the
+ * unrelated messages (0.15–0.29 in that same test) but below 0.75, so the
+ * copilot answered "I don't have information" even with the correct answer
+ * already indexed. If you switch embedding models, it's worth recalibrating
+ * this number with real data instead of blindly copying this same value.
  */
 const MIN_SIMILARITY = 0.4;
 /**
- * Cuántos candidatos usamos como "mejor esfuerzo" cuando NINGUNO llega al
- * umbral — ver el comentario grande más abajo, en el paso 2, para el
- * porqué hace falta esto.
+ * How many "best effort" candidates we fall back to when NONE clear the
+ * threshold — see the big comment further down, in step 2, for why this is needed.
  */
 const FALLBACK_MATCH_COUNT = 5;
 
 /**
- * El flujo RAG (Retrieval-Augmented Generation) del copiloto, en tres pasos:
+ * The RAG (Retrieval-Augmented Generation) flow for the copilot, in three
+ * steps:
  *
- *   1. RECUPERAR — convertimos la pregunta en un vector, y después
- *      buscamos en `rw_message_embeddings` los mensajes pasados más
- *      parecidos. Esta es la "R" de RAG: en vez de pedirle al LLM que
- *      responda de la nada, le pasamos fragmentos reales del historial de
- *      la conversación.
+ *   1. RETRIEVE — turn the question into a vector, then search
+ *      `rw_message_embeddings` for the most similar past messages. This is
+ *      the "R" in RAG: instead of asking the LLM to answer from thin air,
+ *      we hand it real snippets from the actual conversation history.
  *
- *   2. ANCLAR — nos quedamos solo con las coincidencias por encima de
- *      MIN_SIMILARITY. Esta es la parte crítica de seguridad de todo el
- *      caso de uso: `findSimilarInUserChannels` está escrita para buscar
- *      SIEMPRE solo dentro de los canales a los que pertenece `userId`
- *      (join con rw_channel_members), respaldado ADEMÁS por la política
- *      RLS de rw_message_embeddings. Un usuario literalmente no puede
- *      recibir una respuesta apoyada en un mensaje de un canal en el que no
- *      está — la búsqueda vectorial nunca lo llega a ver.
+ *   2. GROUND — keep only matches above MIN_SIMILARITY. This is the
+ *      security-critical part of the whole use case: `findSimilarInUserChannels`
+ *      is written to only ever search inside channels `userId` belongs to
+ *      (join on rw_channel_members), backed AGAIN by the RLS policy on
+ *      rw_message_embeddings. A user literally cannot get an answer that
+ *      leans on a message from a channel they're not in — the vector
+ *      search never sees it in the first place.
  *
- *   3. GENERAR — le mandamos al LLM la pregunta más los fragmentos
- *      recuperados y devolvemos su respuesta, junto con las fuentes para
- *      que el frontend pueda mostrar "esto salió de estos mensajes" en vez
- *      de una caja negra.
+ *   3. GENERATE — send the question plus the retrieved snippets to the LLM
+ *      and return its answer, along with the sources so the frontend can
+ *      show "this came from these messages" instead of a black box.
  *
- * Fíjense que esta clase nunca importa OpenAI ni Gemini directo — solo
- * conoce ILLMProvider / IEmbeddingProvider. Quien arma todo esto
- * (container.ts) decide qué adaptador concreto inyectar, según
- * AI_PROVIDER — eso es lo que hace que el LLM sea intercambiable sin tocar este archivo para nada.
+ * Notice this class never imports OpenAI or Gemini directly — it only
+ * knows ILLMProvider / IEmbeddingProvider. Whoever wires this up
+ * (container.ts) decides which concrete adapter to inject, based on
+ * AI_PROVIDER — that's what makes the LLM swappable without touching this
+ * file at all.
  */
 export class AskCopilot {
   constructor(
@@ -92,7 +88,7 @@ export class AskCopilot {
     const question = input.question.trim();
     if (question.length === 0) throw new ValidationError("Question can't be empty");
 
-    // 1. RECUPERAR
+    // 1. RETRIEVE
     const questionEmbedding = await this.embeddingProvider.embed(question);
     const matches = await this.embeddingRepository.findSimilarInUserChannels({
       userId: input.userId,
@@ -100,29 +96,29 @@ export class AskCopilot {
       limit: MAX_RETRIEVED_MESSAGES,
     });
 
-    // 2. ANCLAR
+    // 2. GROUND
     let relevantMatches = matches.filter((match) => match.similarity >= MIN_SIMILARITY);
 
-    // Las preguntas AMPLIAS ("resume todo lo que se ha hablado", "¿de qué
-    // van mis canales?") son un caso especial: la pregunta en sí no trata
-    // sobre un tema puntual, así que su embedding no se parece mucho a
-    // NINGÚN mensaje individual — en una prueba real, "resume todo lo que
-    // se ha hablado" le dio 0.34 de similitud a su mejor candidato (con 14
-    // mensajes reales disponibles para resumir), por debajo del umbral. Acá
-    // el problema no es falta de contenido, es que la similitud coseno
-    // simplemente no está pensada para medir "qué tan bien resume esto TODO
-    // el canal". En vez de devolver "no tengo información" cuando sí hay
-    // mensajes de sobra, usamos los mejores candidatos disponibles como
-    // mejor esfuerzo — ya vienen ordenados por similitud, así que siguen
-    // siendo la aproximación más razonable con la que contamos.
+    // Broad questions ("summarize everything that's been discussed", "what
+    // are my channels about?") are a special case: the question itself
+    // isn't about any single specific topic, so its embedding doesn't look
+    // much like ANY individual message — in a real test, "summarize
+    // everything that's been discussed" scored 0.34 against its best
+    // candidate (with 14 real messages available to summarize), below the
+    // threshold. The problem here isn't a lack of content, it's that cosine
+    // similarity just isn't built to measure "how well does this summarize
+    // the WHOLE channel". Instead of returning "I don't have information"
+    // when there's plenty of messages, we fall back to the best candidates
+    // available — they're already ordered by similarity, so "the best we've
+    // got" is still the most reasonable approximation we have.
     if (relevantMatches.length === 0 && matches.length > 0) {
       relevantMatches = matches.slice(0, FALLBACK_MATCH_COUNT);
     }
 
-    // 3. GENERAR — incluso con cero coincidencias igual le preguntamos al
-    // LLM, pero el system prompt le dice que admita que no sabe en vez de
-    // inventar. Un array `sources` vacío es la señal para el frontend de
-    // que la respuesta no está anclada en nada real.
+    // 3. GENERATE — even with zero matches we still ask the LLM to answer,
+    // but the system prompt tells it to admit it doesn't know rather than
+    // hallucinate. An empty `sources` array is the frontend's signal that
+    // the answer isn't grounded in anything real.
     const answer = await this.llmProvider.generateAnswer(
       question,
       relevantMatches.map((match) => match.content)

@@ -2,16 +2,16 @@ import { RefreshToken } from "../entities/RefreshToken";
 
 export interface IRefreshTokenRepository {
   findByTokenHash(tokenHash: string): Promise<RefreshToken | null>;
-  /** Revoca un token puntual por id (usado por LogoutUser). */
+  /** Revokes a single token by id (used by LogoutUser). */
   revoke(id: string): Promise<void>;
   /**
-   * Revoca cualquier token activo del usuario e inserta uno nuevo como la
-   * única sesión activa — es la operación que usan tanto el login como el
-   * refresh para cumplir la regla de "un solo refresh token activo por
-   * usuario" (índice único parcial `idx_rw_active_refresh_token_unique`,
-   * ver DECISIONS.md). Es responsabilidad de la implementación manejar la
-   * carrera de dos requests concurrentes para el mismo usuario sin dejar
-   * escapar un error de base de datos.
+   * Revokes any active token for the user and inserts a new one as the
+   * only active session — this is the operation both login and refresh use
+   * to satisfy the "one active refresh token per user" rule (partial
+   * unique index `idx_rw_active_refresh_token_unique`, see DECISIONS.md).
+   * It's the implementation's responsibility to handle the race between
+   * two concurrent requests for the same user without leaking a database
+   * error.
    */
   replaceActiveToken(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<RefreshToken>;
 }

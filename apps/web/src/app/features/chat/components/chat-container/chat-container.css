@@ -1,12 +1,7 @@
 /**
- * `group-hover:*` de Tailwind v4 se genera adentro de un `@media (hover: hover)`
- * — que es lo correcto para la mayoría de casos (evita dejar menús "hover-only"
- * pegados en pantallas táctiles), pero también significa que ese estilo
- * depende de que el navegador reporte soporte de hover, algo que no todos los
- * navegadores (viejos, headless, ciertos híbridos táctil+mouse) informan bien
- * incluso con un mouse real conectado. Para algo tan central como la barrita
- * de acciones de cada mensaje, preferimos un `:hover` de CSS plano — sin el
- * gate de la media query — que funciona en cualquier lado sin depender de esa detección.
+ * Pure CSS `:hover` rules for message action toolbar and hover timestamps.
+ * Standard CSS rules avoid Tailwind v4 `@media (hover: hover)` constraints,
+ * ensuring action buttons (edit/delete emojis) display reliably when hovering over a message row.
  */
 .message-row .message-toolbar,
 .message-row .message-time-hover {

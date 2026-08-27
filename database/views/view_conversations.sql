@@ -1,5 +1,5 @@
 -- ============================================
--- 1. VISTA DE CONVERSACIONES
+-- 1. CONVERSATIONS VIEW
 -- ============================================
 CREATE OR REPLACE VIEW rw_user_conversations AS
 SELECT 
@@ -23,7 +23,7 @@ LEFT JOIN LATERAL (
 LEFT JOIN rw_users u ON m.user_id = u.id;
 
 -- ============================================
--- 2. PROCEDIMIENTO 1: BÚSQUEDA DE USUARIOS
+-- 2. PROCEDURE 1: USER SEARCH
 -- ============================================
 CREATE OR REPLACE PROCEDURE rw_sp_search_users(
     IN p_search_term VARCHAR,
@@ -42,11 +42,11 @@ END;
 $$;
 
 -- ============================================
--- 3. PROCEDIMIENTO 2: GESTIÓN DE USUARIOS
+-- 3. PROCEDURE 2: USER MANAGEMENT
 -- ============================================
 CREATE OR REPLACE PROCEDURE rw_sp_manage_user(
     IN p_user_id UUID,
-    IN p_action VARCHAR, -- 'UPDATE' o 'SOFT_DELETE'
+    IN p_action VARCHAR, -- 'UPDATE' or 'SOFT_DELETE'
     IN p_name VARCHAR DEFAULT NULL,
     IN p_email VARCHAR DEFAULT NULL,
     IN p_role VARCHAR DEFAULT NULL
@@ -67,7 +67,7 @@ BEGIN
         SET revoked_at = NOW()
         WHERE user_id = p_user_id AND revoked_at IS NULL;
     ELSE
-        RAISE EXCEPTION 'Acción inválida. Usa UPDATE o SOFT_DELETE';
+        RAISE EXCEPTION 'Invalid action. Use UPDATE or SOFT_DELETE';
     END IF;
 END;
 $$;

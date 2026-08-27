@@ -9,9 +9,9 @@ import { openApiSpec } from "./http/openapi/openapiSpec";
 import { env } from "../infrastructure/config/env";
 
 /**
- * Arma la app de Express SIN levantar un servidor HTTP ni Socket.io.
- * Se deja separado de server.ts para que los tests e2e puedan hacer
- * `supertest(createApp())` directo, sin puerto abierto ni ciclo de vida de sockets que limpiar.
+ * Builds the Express app WITHOUT starting an HTTP server or Socket.io.
+ * Kept separate from server.ts so e2e tests can `supertest(createApp())`
+ * directly, with no open port and no socket lifecycle to clean up.
  */
 export function createApp(): Express {
   const app = express();
@@ -23,9 +23,9 @@ export function createApp(): Express {
 
   app.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
 
-  // Swagger UI necesita poder correr sus propios scripts/estilos inline —
-  // el Content-Security-Policy por defecto de helmet se lo bloquearía, así
-  // que se lo sacamos SOLO en esta ruta de documentación, no en el resto de la API.
+  // Swagger UI needs to run its own inline scripts/styles — helmet's
+  // default Content-Security-Policy would block that, so we drop it just
+  // on this documentation route, not on the rest of the API.
   app.get("/api/openapi.json", (_req, res) => res.status(200).json(openApiSpec));
   app.use(
     "/api/docs",
@@ -40,7 +40,7 @@ export function createApp(): Express {
   app.use("/api", apiRouter);
 
   app.use(notFoundHandler);
-  app.use(errorHandler); // tiene que ir al final: Express solo trata una función de 4 argumentos como manejador de errores
+  app.use(errorHandler); // must be last: Express only treats a 4-arg function as an error handler
 
   return app;
 }

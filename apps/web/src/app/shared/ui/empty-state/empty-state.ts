@@ -2,11 +2,9 @@ import { Component, input } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
 /**
- * Estado vacío genérico y reutilizable — lo usamos en el chat ("todavía no
- * hay mensajes, ¡escribe el primero!"), en el copiloto ("hazme una
- * pregunta sobre tus canales") y en el listado de canales. Recibe todo por
- * `input()` para no repetir el mismo markup con textos hardcodeados en
- * cada lugar donde hace falta un estado vacío.
+ * Generic reusable empty state component — used in chat ("no messages yet"),
+ * copilot ("ask a question about your channels"), and channel list.
+ * Receives translated keys via `input()` to avoid hardcoded UI strings.
  */
 @Component({
   selector: 'app-empty-state',
@@ -18,6 +16,6 @@ export class EmptyState {
   readonly icon = input('💬');
   readonly titleKey = input.required<string>();
   readonly descriptionKey = input<string | undefined>(undefined);
-  /** 'dark' para cuando este estado vacío cae sobre el sidebar oscuro (canales), 'light' para el resto. */
+  /** 'dark' when rendered over dark navigation sidebar (channels), 'light' elsewhere. */
   readonly variant = input<'light' | 'dark'>('light');
 }

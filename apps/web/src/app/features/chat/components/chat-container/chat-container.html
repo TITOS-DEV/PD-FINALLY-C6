@@ -22,11 +22,9 @@
           <p class="py-2 text-center text-xs text-ink-3">{{ 'chat.loadingMore' | translate }}</p>
         }
 
-        <!-- Lista plana, sin burbujas: los mensajes seguidos del mismo autor
-             comparten un solo encabezado (avatar + nombre + hora) en vez de
-             repetirlo, como en Slack/Discord. Al pasar el mouse aparece una
-             barrita de acciones (editar/borrar) arriba a la derecha de cada
-             fila — solo con los íconos que le corresponden a esa persona. -->
+        <!-- Flat list without message bubbles: consecutive messages by same author
+             share a single header (avatar + name + timestamp) as in Slack/Discord.
+             Action toolbar (edit/delete) reveals on hover. -->
         <ul class="flex flex-col pb-2">
           @for (row of rows(); track trackByMessageId($index, row)) {
             <li
@@ -78,7 +76,7 @@
                 }
 
                 @if (editingMessageId() === row.message.id) {
-                  <!-- Edición en línea: reemplaza el texto por un textarea chiquito, Enter guarda, Escape cancela. -->
+                  <!-- Inline editing: replaces message content with textarea. Enter saves, Escape cancels. -->
                   <div class="flex flex-col gap-1.5 py-1">
                     <textarea
                       class="w-full resize-none rounded-fluent border border-brand-500 bg-surface px-2 py-1.5 text-sm text-ink-1 outline-none"
@@ -126,8 +124,7 @@
                   </div>
                 }
 
-                <!-- Estado del mensaje: pendiente / fallido. 'sent' no necesita
-                     nada más acá, su hora ya está en el encabezado. -->
+                <!-- Message status indicator: pending / failed. -->
                 @if (row.message.status === 'pending') {
                   <span class="text-[11px] text-ink-3">{{ 'chat.status.pending' | translate }}</span>
                 } @else if (row.message.status === 'failed') {

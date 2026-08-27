@@ -4,16 +4,16 @@ export interface SimilarMessageMatch {
   content: string;
   authorName: string;
   createdAt: Date;
-  /** Similitud coseno, 1 = idéntico, 0 = sin relación. */
+  /** Cosine similarity, 1 = identical, 0 = unrelated. */
   similarity: number;
 }
 
 export interface IMessageEmbeddingRepository {
   upsert(messageId: string, embedding: number[]): Promise<void>;
   /**
-   * Búsqueda por similitud vectorial, restringida a los canales a los que
-   * pertenece `userId`. El RLS también obliga esto a nivel de BD, pero la
-   * consulta filtra explícito además — ver DECISIONS.md, sección "defensa en profundidad".
+   * Vector similarity search, restricted to channels `userId` belongs to.
+   * RLS enforces this too at the DB level, but the query filters
+   * explicitly as well — see DECISIONS.md, "defense in depth" section.
    */
   findSimilarInUserChannels(input: {
     userId: string;

@@ -1,56 +1,56 @@
-# Arquitectura — Riwi Internal Messenger
+# Architecture — Riwi Internal Messenger
 
-Mapa rápido de cómo está armado `apps/api`. Para el *porqué* de cada decisión, ver [DECISIONS.md](./DECISIONS.md).
+Quick architectural overview of `apps/api`. For full rationale behind key technical choices, see [DECISIONS.md](./DECISIONS.md).
 
-## Capas
+## Layer Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ presentation/            Express, rutas, Zod, Socket.io      │
+│ presentation/            Express, routes, Zod, Socket.io     │
 │   http/controllers  →   use-cases  →   domain (interfaces)   │
 │   http/middlewares       ↑                                   │
 │   websocket               │                                  │
 └───────────────────────────┼──────────────────────────────────┘
-                             │ implementa
+                             │ implements
 ┌────────────────────────────▼──────────────────────────────────┐
 │ infrastructure/          pg, JWT, bcrypt, OpenAI/Gemini SDK    │
 │   db/          repositories/          ai/          auth/      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- **domain**: entidades (`User`, `Message`...) e interfaces (`IMessageRepository`, `ILLMProvider`...). No importa nada de `express`, `pg` ni SDKs externos.
-- **use-cases**: una clase por funcionalidad (`SendMessage`, `AskCopilot`...). Reciben interfaces del dominio por constructor, nunca implementaciones concretas.
-- **infrastructure**: implementa esas interfaces contra Postgres, JWT y proveedores de IA reales.
-- **presentation**: la única capa que le habla a HTTP/WebSockets. Los controllers son pegamento — arman el contexto de BD, llaman al caso de uso, devuelven la respuesta.
+- **domain**: Entities (`User`, `Message`...) and ports/interfaces (`IMessageRepository`, `ILLMProvider`...). It has zero dependencies on `express`, `pg`, or third-party SDKs.
+- **use-cases**: Single-responsibility classes for business actions (`SendMessage`, `AskCopilot`...). They depend strictly on domain interfaces passed via constructors.
+- **infrastructure**: Implements domain interfaces against real Postgres, JWT, and AI provider SDKs.
+- **presentation**: The HTTP/WebSocket interface. Controllers act as glue: binding database context, invoking use cases, and returning responses.
 
-## Flujo de una request autenticada (enviar mensaje)
+## Authenticated Request Flow (Send Message)
 
 ```
 POST /api/channels/:id/messages
-  → correlationId          (le pone un X-Correlation-ID a la request)
-  → authMiddleware          (verifica el JWT, llena req.user)
-  → validateRequest(zod)    (valida el body)
+  → correlationId          (attaches X-Correlation-ID header)
+  → authMiddleware          (verifies JWT, populates req.user)
+  → validateRequest(zod)    (validates payload schema)
   → MessageController.send
-      → withRLSContext(userId, db => ...)   (activa RLS: SET LOCAL ROLE authenticated + request.jwt.claims)
+      → withRLSContext(userId, db => ...)   (activates RLS: SET LOCAL ROLE authenticated + request.jwt.claims)
           → buildAuthenticatedContainer(db)
-              → SendMessage.execute(...)     (valida membresía, llama al repo)
-                  → SupabaseMessageRepository.create(...)   (INSERT protegido por RLS)
-      ← responde 201
-      → (fire-and-forget) indexa el embedding para el copiloto
-      → emite "message:new" por Socket.io a los miembros del canal
+              → SendMessage.execute(...)     (verifies membership, calls repository)
+                  → SupabaseMessageRepository.create(...)   (INSERT guarded by database RLS)
+      ← responds 201 Created
+      → (fire-and-forget) indexes embedding for copilot
+      → emits "message:new" via Socket.io to channel members
 ```
 
-## Flujo del copiloto (RAG)
+## Copilot Flow (RAG)
 
 ```
 POST /api/copilot/ask
   → authMiddleware + withRLSContext(userId, ...)
   → AskCopilot.execute({ userId, question })
       1. embeddingProvider.embed(question)                         → vector
-      2. embeddingRepository.findSimilarInUserChannels(userId, ...) → solo canales del usuario (RLS + join explícito)
-      3. filtra por similarity >= 0.75
-      4. llmProvider.generateAnswer(question, contexto)            → respuesta
+      2. embeddingRepository.findSimilarInUserChannels(userId, ...) → user channels only (RLS + explicit join)
+      3. filter by similarity >= 0.75
+      4. llmProvider.generateAnswer(question, context)             → response
   ← { answer, sources }
 ```
 
-`embeddingProvider` y `llmProvider` son la misma instancia (`OpenAIProvider` o `GeminiProvider`, decidido por `AIProviderFactory` según `AI_PROVIDER`) — `AskCopilot` nunca sabe cuál de las dos es.
+`embeddingProvider` and `llmProvider` share the adapter instance (`OpenAIProvider` or `GeminiProvider`, resolved by `AIProviderFactory` based on `AI_PROVIDER`). `AskCopilot` remains vendor-agnostic.

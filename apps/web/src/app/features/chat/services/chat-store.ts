@@ -9,16 +9,8 @@ import { MessageService } from './message.service';
 import { ToastService } from '../../../shared/ui/toast/toast.service';
 
 /**
- * Estado de la zona de mensajería, centralizado acá para que
- * ChatContainerComponent (y cualquier otro componente que lo necesite, como
- * el listado de canales) sea "tonto": solo lee signals y llama métodos, sin
- * guardar su propia copia del estado.
- *
- * Solo mantenemos en memoria los mensajes del canal ACTUALMENTE
- * seleccionado — no un mapa con todos los canales a la vez. Es la
- * simplificación correcta acá: la UI nunca muestra dos canales al mismo
- * tiempo, así que no hay razón para pagar la complejidad de sincronizar
- * estado de varios canales en paralelo.
+ * Messaging state store managing active channel selection, optimistic message updates,
+ * WebSocket event subscriptions, and keyset pagination state.
  */
 @Injectable({ providedIn: 'root' })
 export class ChatStore {
@@ -30,27 +22,25 @@ export class ChatStore {
 
   private readonly PAGE_SIZE = 30;
 
-  // ---- Canales ----
+  // Channels state
   readonly channels = signal<Channel[]>([]);
   readonly channelsLoading = signal(false);
   readonly channelsError = signal(false);
 
-  // ---- Canal seleccionado + sus mensajes ----
+  // Selected channel & messages state
   readonly selectedChannelId = signal<string | null>(null);
   readonly selectedChannel = computed(
     () => this.channels().find((c) => c.id === this.selectedChannelId()) ?? null
   );
   readonly messages = signal<Message[]>([]);
-  readonly messagesLoading = signal(false); // carga inicial del canal
-  readonly loadingMore = signal(false); // cargando una página más vieja (scroll hacia arriba)
+  readonly messagesLoading = signal(false); // Initial load for selected channel
+  readonly loadingMore = signal(false); // Pagination loading (scroll up)
   readonly messagesError = signal(false);
   private readonly nextCursor = signal<MessageCursor | null>(null);
   readonly hasMoreMessages = computed(() => this.nextCursor() !== null);
 
   constructor() {
-    // Nos suscribimos UNA sola vez, para toda la vida de la app, a los
-    // mensajes que llegan por WebSocket — sin importar a qué canal estemos
-    // mirando en un momento dado.
+    // Subscribe once to global real-time message event streams
     this.socketService.onNewMessage().subscribe((incoming) => this.handleIncomingMessage(incoming));
     this.socketService.onMessageUpdated().subscribe((updated) => this.handleIncomingUpdate(updated));
     this.socketService.onMessageDeleted().subscribe((payload) => this.handleIncomingDelete(payload));
@@ -92,8 +82,7 @@ export class ChatStore {
 
     this.messageService.list(channelId, undefined, this.PAGE_SIZE).subscribe({
       next: (res) => {
-        // El backend manda lo más nuevo primero (DESC); para un chat normal
-        // (lo viejo arriba, lo nuevo abajo) necesitamos el orden invertido.
+        // Backend orders newest first (DESC); reverse for chronological UI ordering
         this.messages.set([...res.messages].reverse());
         this.nextCursor.set(res.nextCursor);
         this.messagesLoading.set(false);
@@ -107,12 +96,9 @@ export class ChatStore {
   }
 
   /**
-   * Trae la página anterior (mensajes más viejos) y la pega ADELANTE del
-   * array actual. Devuelve una promesa que se resuelve cuando el array ya
-   * se actualizó, porque ChatContainerComponent necesita ese momento exacto
-   * para corregir la posición del scroll (ver ese componente para el
-   * porqué) — más allá de eso, quien preserva el scroll es el componente,
-   * este método solo se encarga de los datos.
+   * Fetches historical messages (older page) and prepends them to state.
+   * Returns a promise resolving when state updates, allowing `ChatContainerComponent`
+   * to recalculate scroll position.
    */
   loadMoreMessages(): Promise<void> {
     const channelId = this.selectedChannelId();
@@ -139,10 +125,8 @@ export class ChatStore {
   }
 
   /**
-   * Envío optimista: el mensaje aparece en pantalla como 'pending' de
-   * inmediato, y se actualiza a 'sent' o 'failed' según lo que responda el
-   * backend — la persona nunca se queda mirando una pantalla congelada
-   * esperando la red.
+   * Optimistic sending: renders message instantly with 'pending' status,
+   * updating to 'sent' or 'failed' upon backend API response.
    */
   sendMessage(content: string): void {
     const channelId = this.selectedChannelId();
@@ -173,7 +157,6 @@ export class ChatStore {
     });
   }
 
-  /** Reintenta un mensaje que quedó en 'failed' — lo saca de la lista y lo vuelve a mandar como uno nuevo. */
   retryMessage(failedMessageId: string): void {
     const failed = this.messages().find((m) => m.id === failedMessageId);
     if (!failed) return;
@@ -181,13 +164,6 @@ export class ChatStore {
     this.sendMessage(failed.content);
   }
 
-  /**
-   * Edición no-optimista a propósito: a diferencia de enviar un mensaje
-   * (que hacemos sentir instantáneo porque pasa todo el tiempo), editar es
-   * poco frecuente — esperar la confirmación del backend antes de mostrar
-   * el cambio evita tener que lidiar con "revertir" el contenido si la
-   * edición falla.
-   */
   editMessage(messageId: string, content: string): void {
     const trimmed = content.trim();
     if (trimmed.length === 0) return;
@@ -206,10 +182,7 @@ export class ChatStore {
   }
 
   private handleIncomingMessage(incoming: Message): void {
-    // Los mensajes que mandamos NOSOTROS ya se agregan de forma optimista y
-    // se confirman con la respuesta del POST — si además los agregáramos
-    // acá cuando el WebSocket los rebota, terminaríamos mostrándolos dos
-    // veces. Por eso ignoramos el eco de nuestros propios mensajes.
+    // Ignore echo of own sent messages to prevent duplication
     if (incoming.userId === this.authService.currentUser()?.id) return;
     if (incoming.channelId !== this.selectedChannelId()) return;
     if (this.messages().some((m) => m.id === incoming.id)) return;
@@ -217,12 +190,6 @@ export class ChatStore {
     this.messages.update((current) => [...current, incoming]);
   }
 
-  /**
-   * Alguien más editó un mensaje que tenemos en pantalla — no filtramos el
-   * "eco" propio como sí hacemos con los mensajes nuevos: acá no hay riesgo
-   * de duplicar nada, en el peor caso nos actualizamos a nosotros mismos
-   * con el mismo dato que ya teníamos.
-   */
   private handleIncomingUpdate(updated: Message): void {
     if (updated.channelId !== this.selectedChannelId()) return;
     this.replaceMessage(updated.id, updated);
@@ -248,6 +215,6 @@ export class ChatStore {
   private markLoadedMessagesAsRead(): void {
     const ids = this.messages().map((m) => m.id);
     if (ids.length === 0) return;
-    this.messageService.markAsRead(ids).subscribe({ error: () => {} }); // best-effort, no bloquea la UI
+    this.messageService.markAsRead(ids).subscribe({ error: () => {} });
   }
 }

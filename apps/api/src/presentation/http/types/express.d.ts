@@ -1,7 +1,7 @@
 import { AccessTokenPayload } from "../../../infrastructure/auth/JwtService";
 
-// Extiende el Request de Express para que `req.user` y `req.correlationId`
-// queden tipados en todas partes sin necesitar castear.
+// Augments Express's Request so `req.user` and `req.correlationId` are
+// typed everywhere without casting.
 declare global {
   namespace Express {
     interface Request {

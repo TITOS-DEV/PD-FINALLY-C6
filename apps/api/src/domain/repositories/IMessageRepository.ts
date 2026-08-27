@@ -8,23 +8,23 @@ export interface SendMessageInput {
 
 export interface GetChannelMessagesInput {
   channelId: string;
-  /** Se omite para traer la primera página (la más reciente). */
+  /** Omit to get the first (most recent) page. */
   cursor?: MessageCursor;
   limit: number;
 }
 
 export interface IMessageRepository {
-  /** Devuelve el mensaje ya con `authorName` (join con rw_users) — ver MessageWithAuthor. */
+  /** Returns the message already with `authorName` (join with rw_users) — see MessageWithAuthor. */
   create(input: SendMessageInput): Promise<MessageWithAuthor>;
   /**
-   * Lectura del historial de un canal paginada por keyset, la más nueva primero.
-   * Nada de OFFSET en ningún lado — ver DECISIONS.md para el porqué importa acá.
+   * Keyset-paginated read of a channel's history, newest first.
+   * No OFFSET anywhere — see DECISIONS.md for why that matters here.
    */
   findByChannel(input: GetChannelMessagesInput): Promise<MessageWithAuthor[]>;
   findById(id: string): Promise<Message | null>;
-  /** Edita el contenido — la política RLS de update exige ser el autor o admin. */
+  /** Edits the content — the RLS update policy requires being the author or an admin. */
   updateContent(id: string, content: string): Promise<MessageWithAuthor>;
-  /** Solo soft delete — el DELETE físico está prohibido para esta tabla. */
+  /** Soft delete only — physical DELETE is forbidden for this table. */
   softDelete(id: string): Promise<void>;
   markAsRead(messageIds: string[], userId: string): Promise<void>;
 }

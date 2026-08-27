@@ -45,9 +45,7 @@
                     }
                   </div>
                 } @else {
-                  <!-- Respuesta negativa explícita: no hay ni un mensaje real detrás de
-                       esta respuesta, así que lo decimos con un aviso aparte en vez de
-                       confiar solo en que el texto de la IA lo aclare bien. -->
+                  <!-- Explicit negative fallback: indicates no message sources were retrieved for grounding -->
                   <p class="mt-1 rounded-fluent bg-status-pending/10 px-2 py-1.5 text-xs font-medium text-status-pending">
                     ⚠️ {{ 'copilot.noSources' | translate }}
                   </p>

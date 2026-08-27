@@ -1,10 +1,10 @@
 import { User } from "../entities/User";
 
 /**
- * Puerto para leer/escribir usuarios. Los casos de uso solo conocen esta
- * interfaz; no tienen idea de si está respaldada por SQL crudo, el cliente
- * de Supabase, o cualquier otra cosa — ese es todo el punto de la inversión
- * de dependencias de Clean Architecture.
+ * Port for reading/writing users. The use cases only know this interface;
+ * they have no idea whether it's backed by raw SQL, Supabase's client, or
+ * anything else — that's the whole point of Clean Architecture's
+ * dependency inversion.
  */
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;

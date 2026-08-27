@@ -7,7 +7,7 @@ import { ToastService } from '../../../shared/ui/toast/toast.service';
 
 type AuthMode = 'login' | 'register';
 
-/** Pantalla pública de login/registro. Alterna entre los dos modos sin cambiar de ruta. */
+/** Public login/registration page component. Toggles mode without route navigation. */
 @Component({
   selector: 'app-login-page',
   imports: [FormsModule, TranslatePipe],

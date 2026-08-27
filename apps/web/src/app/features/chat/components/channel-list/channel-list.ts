@@ -4,10 +4,8 @@ import { ChatStore } from '../../services/chat-store';
 import { EmptyState } from '../../../../shared/ui/empty-state/empty-state';
 
 /**
- * Listado de canales del usuario, en base a la vista de conversaciones.
- * No guarda estado propio — todo sale de ChatStore, este componente solo
- * lo pinta y avisa (`channelSelected`) cuando alguien hace clic, para que
- * el shell que lo contiene pueda cerrar el drawer en mobile.
+ * User channels list component bound to ChatStore state.
+ * Emits `channelSelected` event on click to close mobile navigation drawer.
  */
 @Component({
   selector: 'app-channel-list',

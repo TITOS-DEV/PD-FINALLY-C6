@@ -1,10 +1,9 @@
 /**
- * Un usuario de la plataforma. Refleja la tabla `rw_users`.
+ * A user of the platform. Mirrors the `rw_users` table.
  *
- * Esto es a propósito una forma de dato plana: la capa de dominio no tiene
- * idea de que existen Postgres, Supabase o cualquier framework HTTP.
- * Todo lo que toca infraestructura (hashear, SQL, JSON) pasa fuera de este
- * archivo.
+ * This is a plain data shape on purpose: the domain layer has no idea
+ * Postgres, Supabase or any HTTP framework exist. Anything that touches
+ * infrastructure (hashing, SQL, JSON) happens outside of this file.
  */
 export type UserRole = "user" | "admin";
 
@@ -12,8 +11,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  /** Hash de bcrypt, nunca la contraseña en texto plano. Lo dejo acá porque
-   *  el repositorio necesita leerlo/escribirlo; los casos de uso nunca deberían exponerlo. */
+  /** Bcrypt hash, never the plain password. Kept here only because the
+   *  repository needs to read/write it; use cases should never expose it. */
   passwordHash: string;
   role: UserRole;
   createdAt: Date;
@@ -21,9 +20,9 @@ export interface User {
 }
 
 /**
- * Lo que de verdad queremos devolverle a un cliente después de autenticar:
- * todo menos el hash de la contraseña. Tenerlo como un tipo aparte evita
- * que nos "olvidemos" de quitar el hash antes de serializar una respuesta.
+ * What we actually want to hand back to a client after auth: everything
+ * except the password hash. Keeping this as a separate type stops us from
+ * "forgetting" to strip the hash before serializing a response.
  */
 export type PublicUser = Omit<User, "passwordHash">;
 

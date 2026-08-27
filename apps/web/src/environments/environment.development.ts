@@ -1,7 +1,7 @@
 /**
- * Configuración para desarrollo local (`ng serve` / `npm start`). Apunta
- * directo al backend de `apps/api` corriendo en el puerto 4000 (ver el
- * README de la raíz del monorepo para levantarlo).
+ * Configuration for local development (`ng serve` / `npm start`). Points
+ * directly to the `apps/api` backend running on port 4000 (see the
+ * README in the monorepo root for setup instructions).
  */
 export const environment = {
   production: false,

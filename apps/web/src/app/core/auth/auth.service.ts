@@ -18,14 +18,14 @@ export interface RegisterInput {
 }
 
 /**
- * Dueño de la sesión del usuario en el frontend. Todo lo que necesita saber
- * "quién soy" o "estoy logueado" le pregunta a este servicio — nunca lee
- * localStorage ni el token directamente.
+ * Owner of the user's session in the frontend. Anything that needs to
+ * know "who am I" or "am I logged in" asks this service — it never reads
+ * localStorage or the token directly.
  *
- * El estado vive en un signal (`_session`), así que `currentUser` e
- * `isAuthenticated` son sencillamente `computed()` sobre esa única fuente
- * de verdad: cambia una vez acá y toda la UI que los usa se actualiza sola,
- * sin necesitar un NgRx store para algo tan chico.
+ * State lives in a signal (`_session`), so `currentUser` and
+ * `isAuthenticated` are simply `computed()` over that single source of
+ * truth: change it once here and every piece of UI using them updates on
+ * its own, no need for an NgRx store for something this small.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -52,15 +52,15 @@ export class AuthService {
     const refreshToken = this._session()?.refreshToken;
     this.clearSession();
     if (!refreshToken) return new Observable((sub) => sub.complete());
-    // Si el logout en el servidor falla (ya expiró, ya se revocó, lo que
-    // sea) igual queremos limpiar la sesión local — por eso ya la borramos arriba.
+    // If the server-side logout fails (already expired, already revoked,
+    // whatever) we still want to clear the local session — that's why it's already cleared above.
     return this.http.post<void>(`${environment.apiUrl}/auth/logout`, { refreshToken });
   }
 
   /**
-   * Usado únicamente por el interceptor cuando una request responde 401.
-   * Reemplaza el par de tokens completo (rotación) y actualiza el usuario
-   * guardado si el backend lo manda de vuelta.
+   * Used only by the interceptor when a request responds with 401.
+   * Replaces the whole token pair (rotation) and updates the stored user
+   * if the backend sends one back.
    */
   refreshSession(): Observable<AuthResponse> {
     const refreshToken = this._session()?.refreshToken;
@@ -74,7 +74,7 @@ export class AuthService {
   }
 
   private setSession(res: AuthResponse): void {
-    if (!res.user) return; // no debería pasar en /login, pero por las dudas
+    if (!res.user) return; // shouldn't happen on /login, but just in case
     const session: StoredSession = { user: res.user, accessToken: res.accessToken, refreshToken: res.refreshToken };
     this._session.set(session);
     this.tokenStorage.save(session);

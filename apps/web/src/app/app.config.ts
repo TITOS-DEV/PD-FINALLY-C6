@@ -15,15 +15,15 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
 
-    // El diccionario inicial (`environment.defaultLang`) se sirve desde
-    // /i18n/*.json — ver public/i18n/es.json y en.json, y el mapeo del
-    // "prefix" acá abajo.
+    // The initial dictionary (`environment.defaultLang`) is served from
+    // /i18n/*.json — see public/i18n/es.json and en.json, and the
+    // "prefix" mapping right below.
     provideTranslateService({ lang: environment.defaultLang, fallbackLang: 'es' }),
     provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json' }),
 
-    // Esperamos a que el idioma inicial termine de cargar ANTES de pintar
-    // el primer componente — si no, la persona vería un parpadeo con las
-    // claves de traducción crudas en vez del texto real.
+    // We wait for the initial language to finish loading BEFORE painting
+    // the first component — otherwise the person would see a flash of raw
+    // translation keys instead of the real text.
     provideAppInitializer(() => inject(I18nService).initialize()),
   ],
 };

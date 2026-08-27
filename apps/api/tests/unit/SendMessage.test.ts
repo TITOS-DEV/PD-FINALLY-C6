@@ -4,10 +4,9 @@ import { ForbiddenError, ValidationError } from "../../src/domain/errors/AppErro
 import { IMessageRepository } from "../../src/domain/repositories/IMessageRepository";
 import { IChannelRepository } from "../../src/domain/repositories/IChannelRepository";
 
-// Las pruebas unitarias se quedan a nivel de caso de uso y fingen los
-// repositorios — nada de Postgres, nada de red, nada de RLS de por medio.
-// Por eso corren en `pnpm test` (rápido, sin necesitar .env) mientras que
-// la suite e2e es un comando aparte.
+// Unit tests stay at the use-case level and fake the repositories — no
+// Postgres, no network, no RLS involved. That's why they run under
+// `pnpm test` (fast, no .env needed) while the e2e suite is a separate command.
 function buildDeps() {
   const messageRepository: IMessageRepository = {
     create: vi.fn(),
@@ -45,7 +44,7 @@ describe("SendMessage", () => {
     const useCase = new SendMessage(messageRepository, channelRepository);
 
     await expect(
-      useCase.execute({ userId: "u1", channelId: "c1", content: "hola equipo" })
+      useCase.execute({ userId: "u1", channelId: "c1", content: "hello team" })
     ).rejects.toBeInstanceOf(ForbiddenError);
 
     expect(messageRepository.create).not.toHaveBeenCalled();
@@ -58,7 +57,7 @@ describe("SendMessage", () => {
       id: "m1",
       channelId: "c1",
       userId: "u1",
-      content: "hola equipo",
+      content: "hello team",
       status: "sent",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -67,13 +66,13 @@ describe("SendMessage", () => {
     });
 
     const useCase = new SendMessage(messageRepository, channelRepository);
-    const result = await useCase.execute({ userId: "u1", channelId: "c1", content: "  hola equipo  " });
+    const result = await useCase.execute({ userId: "u1", channelId: "c1", content: "  hello team  " });
 
     expect(messageRepository.create).toHaveBeenCalledWith({
       channelId: "c1",
       userId: "u1",
-      content: "hola equipo",
+      content: "hello team",
     });
-    expect(result.content).toBe("hola equipo");
+    expect(result.content).toBe("hello team");
   });
 });

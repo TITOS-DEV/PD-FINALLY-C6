@@ -3,6 +3,10 @@
 -- PostgreSQL DDL
 -- ============================================
 
+-- pgvector: extension required before creating rw_message_embeddings, which uses the
+-- `vector` type. Usually enabled in Supabase, but must be explicitly declared for fresh databases.
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- USERS
 CREATE TABLE IF NOT EXISTS rw_users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -104,4 +108,63 @@ CREATE TABLE IF NOT EXISTS rw_messages (
 
     CONSTRAINT rw_messages_content_check
         CHECK (length(trim(content)) > 0)
+);
+
+
+-- MESSAGE EMBEDDINGS (for RAG copilot — see database/MER.pdf)
+CREATE TABLE IF NOT EXISTS rw_message_embeddings (
+    message_id UUID PRIMARY KEY,
+
+    embedding VECTOR(1536) NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT rw_message_embeddings_message_fk
+        FOREIGN KEY (message_id)
+        REFERENCES rw_messages(id)
+        ON DELETE CASCADE
+);
+
+
+-- MESSAGE READ STATUS (read receipts, one row per message+user)
+CREATE TABLE IF NOT EXISTS rw_message_read_status (
+    message_id UUID NOT NULL,
+
+    user_id UUID NOT NULL,
+
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT rw_message_read_status_pk
+        PRIMARY KEY (message_id, user_id),
+
+    CONSTRAINT rw_message_read_status_message_fk
+        FOREIGN KEY (message_id)
+        REFERENCES rw_messages(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT rw_message_read_status_user_fk
+        FOREIGN KEY (user_id)
+        REFERENCES rw_users(id)
+        ON DELETE CASCADE
+);
+
+
+-- REFRESH TOKENS (sessions — see DECISIONS.md, token rotation section)
+CREATE TABLE IF NOT EXISTS rw_refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    user_id UUID NOT NULL,
+
+    token_hash VARCHAR(255) NOT NULL,
+
+    expires_at TIMESTAMPTZ NOT NULL,
+
+    revoked_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT rw_refresh_tokens_user_fk
+        FOREIGN KEY (user_id)
+        REFERENCES rw_users(id)
+        ON DELETE CASCADE
 );

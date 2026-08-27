@@ -1,10 +1,8 @@
 import { Component } from '@angular/core';
 
 /**
- * Placeholder animado mientras se carga la primera página de mensajes de un
- * canal. Mostrar esto en vez de una pantalla en blanco (o un spinner
- * suelto) le da a la persona una idea de qué va a aparecer ahí, y hace que
- * la carga se sienta más rápida de lo que en realidad es.
+ * Animated skeleton placeholder rendered while loading the initial message page.
+ * Provides perceived performance optimization over a blank screen or isolated spinner.
  */
 @Component({
   selector: 'app-message-skeleton',
@@ -13,6 +11,6 @@ import { Component } from '@angular/core';
   styleUrl: './message-skeleton.css',
 })
 export class MessageSkeleton {
-  /** Alterna el lado (izquierda/derecha) de cada barra para que se parezca a una conversación real. */
+  /** Row array index used to render skeleton bars mimicking realistic conversation flow. */
   protected readonly rows = [0, 1, 2, 3, 4, 5];
 }

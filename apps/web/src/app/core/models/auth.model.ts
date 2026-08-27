@@ -1,13 +1,13 @@
 import { User } from './user.model';
 
-/** Lo que devuelven /auth/login y /auth/refresh. */
+/** Response interface returned by `/auth/login` and `/auth/refresh`. */
 export interface AuthResponse {
-  user?: User; // /refresh no devuelve el user de nuevo, solo /login
+  user?: User; // `/refresh` omits user, returned only by `/login`
   accessToken: string;
   refreshToken: string;
 }
 
-/** Lo que persistimos en localStorage — ver TokenStorageService. */
+/** Stored session schema in localStorage (see TokenStorageService). */
 export interface StoredSession {
   user: User;
   accessToken: string;

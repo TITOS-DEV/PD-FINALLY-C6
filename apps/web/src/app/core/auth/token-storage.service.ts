@@ -4,14 +4,14 @@ import { StoredSession } from '../models/auth.model';
 const STORAGE_KEY = 'riwi_session';
 
 /**
- * Único lugar del frontend que toca `localStorage` para la sesión. Todo lo
- * demás (AuthService, el interceptor) le habla a esta clase, nunca
- * directo al storage — así, si el día de mañana cambiamos a cookies
- * httpOnly o a IndexedDB, solo se toca este archivo.
+ * The only place in the frontend that touches `localStorage` for the
+ * session. Everything else (AuthService, the interceptor) talks to this
+ * class, never directly to storage — so if we switch to httpOnly cookies
+ * or IndexedDB tomorrow, only this file needs to change.
  *
- * Guardamos la sesión completa (usuario + los dos tokens) como un solo
- * objeto en vez de tres claves sueltas, para no terminar con un estado
- * inconsistente si algo falla a la mitad de guardar/borrar.
+ * We store the whole session (user + both tokens) as a single object
+ * instead of three separate keys, so we don't end up with inconsistent
+ * state if something fails halfway through saving/clearing.
  */
 @Injectable({ providedIn: 'root' })
 export class TokenStorageService {
@@ -22,7 +22,7 @@ export class TokenStorageService {
     try {
       return JSON.parse(raw) as StoredSession;
     } catch {
-      // Un valor corrupto en localStorage no debería tumbar la app entera al arrancar.
+      // A corrupted value in localStorage shouldn't crash the whole app on startup.
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }

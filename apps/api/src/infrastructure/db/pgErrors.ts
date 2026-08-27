@@ -1,9 +1,9 @@
 /**
- * `unique_violation` — el código de error estándar de Postgres (no algo
- * específico de `pg`) para cuando un INSERT choca contra una restricción
- * única. Lo usamos para detectar cuándo dos requests concurrentes
- * chocaron contra `idx_rw_active_refresh_token_unique` y vale la pena
- * reintentar, en vez de tratarlo como un error genérico de base de datos.
+ * `unique_violation` — Postgres's standard error code (nothing specific to
+ * `pg`) for when an INSERT collides with a unique constraint. We use it to
+ * detect when two concurrent requests collided against
+ * `idx_rw_active_refresh_token_unique` and it's worth retrying, instead of
+ * treating it as a generic database error.
  */
 const UNIQUE_VIOLATION_CODE = "23505";
 

@@ -1,9 +1,8 @@
 /**
- * Especificación OpenAPI 3.0 escrita a mano (no generada desde los schemas
- * de Zod) — para la cantidad de endpoints que tiene esta API, mantener un
- * solo archivo así es más simple que meter una librería de generación
- * automática. Se sirve como JSON en /api/openapi.json y como Swagger UI en
- * /api/docs (ver app.ts).
+ * Hand-written OpenAPI 3.0 spec (not generated from the Zod schemas) — for
+ * the number of endpoints this API has, keeping a single file like this is
+ * simpler than pulling in a generation library. Served as JSON at
+ * /api/openapi.json and as Swagger UI at /api/docs (see app.ts).
  */
 export const openApiSpec = {
   openapi: "3.0.3",
@@ -11,7 +10,7 @@ export const openApiSpec = {
     title: "Riwi Internal Messenger API",
     version: "1.0.0",
     description:
-      "API de mensajería interna con RLS a nivel de datos y un copiloto de IA (RAG). Todas las rutas bajo /api salvo /health.",
+      "Internal messaging API with row-level data security and an AI copilot (RAG). All routes are under /api except /health.",
   },
   servers: [{ url: "/api" }],
   components: {
@@ -79,19 +78,19 @@ export const openApiSpec = {
     },
     responses: {
       Unauthorized: {
-        description: "Falta o es inválido el access token",
+        description: "Missing or invalid access token",
         content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
       },
       Forbidden: {
-        description: "No tienes permiso sobre este recurso",
+        description: "You don't have permission over this resource",
         content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
       },
       NotFound: {
-        description: "El recurso no existe",
+        description: "The resource doesn't exist",
         content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
       },
       ValidationError: {
-        description: "El body/params/query no pasó la validación",
+        description: "The body/params/query failed validation",
         content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
       },
     },
@@ -101,7 +100,7 @@ export const openApiSpec = {
     "/auth/register": {
       post: {
         tags: ["Auth"],
-        summary: "Crear una cuenta nueva (rol 'user' siempre)",
+        summary: "Create a new account (always role 'user')",
         security: [],
         requestBody: {
           required: true,
@@ -121,10 +120,10 @@ export const openApiSpec = {
         },
         responses: {
           "201": {
-            description: "Cuenta creada",
+            description: "Account created",
             content: { "application/json": { schema: { type: "object", properties: { user: { $ref: "#/components/schemas/User" } } } } },
           },
-          "409": { description: "El email ya está registrado", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "409": { description: "Email already registered", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "400": { $ref: "#/components/responses/ValidationError" },
         },
       },
@@ -132,7 +131,7 @@ export const openApiSpec = {
     "/auth/login": {
       post: {
         tags: ["Auth"],
-        summary: "Iniciar sesión",
+        summary: "Sign in",
         security: [],
         requestBody: {
           required: true,
@@ -147,7 +146,7 @@ export const openApiSpec = {
           },
         },
         responses: {
-          "200": { description: "Login correcto", content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } } },
+          "200": { description: "Login successful", content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } } },
           "401": { $ref: "#/components/responses/Unauthorized" },
         },
       },
@@ -155,7 +154,7 @@ export const openApiSpec = {
     "/auth/refresh": {
       post: {
         tags: ["Auth"],
-        summary: "Rotar el refresh token y obtener un access token nuevo",
+        summary: "Rotate the refresh token and get a new access token",
         security: [],
         requestBody: {
           required: true,
@@ -163,7 +162,7 @@ export const openApiSpec = {
         },
         responses: {
           "200": {
-            description: "Par de tokens nuevo",
+            description: "New token pair",
             content: { "application/json": { schema: { type: "object", properties: { accessToken: { type: "string" }, refreshToken: { type: "string" } } } } },
           },
           "401": { $ref: "#/components/responses/Unauthorized" },
@@ -173,19 +172,19 @@ export const openApiSpec = {
     "/auth/logout": {
       post: {
         tags: ["Auth"],
-        summary: "Revocar el refresh token (no falla si ya está revocado)",
+        summary: "Revoke the refresh token (doesn't fail if already revoked)",
         security: [],
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object", required: ["refreshToken"], properties: { refreshToken: { type: "string" } } } } },
         },
-        responses: { "204": { description: "Sesión cerrada" } },
+        responses: { "204": { description: "Session closed" } },
       },
     },
     "/channels": {
       get: {
         tags: ["Channels"],
-        summary: "Listar los canales del usuario autenticado",
+        summary: "List the authenticated user's channels",
         responses: {
           "200": { description: "OK", content: { "application/json": { schema: { type: "object", properties: { channels: { type: "array", items: { $ref: "#/components/schemas/Channel" } } } } } } },
           "401": { $ref: "#/components/responses/Unauthorized" },
@@ -193,13 +192,13 @@ export const openApiSpec = {
       },
       post: {
         tags: ["Channels"],
-        summary: "Crear un canal (el creador queda como miembro automáticamente)",
+        summary: "Create a channel (the creator automatically becomes a member)",
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object", required: ["name"], properties: { name: { type: "string" }, description: { type: "string" } } } } },
         },
         responses: {
-          "201": { description: "Canal creado", content: { "application/json": { schema: { type: "object", properties: { channel: { $ref: "#/components/schemas/Channel" } } } } } },
+          "201": { description: "Channel created", content: { "application/json": { schema: { type: "object", properties: { channel: { $ref: "#/components/schemas/Channel" } } } } } },
           "401": { $ref: "#/components/responses/Unauthorized" },
         },
       },
@@ -207,11 +206,11 @@ export const openApiSpec = {
     "/channels/{channelId}/messages": {
       get: {
         tags: ["Messages"],
-        summary: "Historial de un canal, paginado por keyset (no OFFSET)",
+        summary: "A channel's history, paginated by keyset (no OFFSET)",
         parameters: [
           { name: "channelId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
           { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } },
-          { name: "cursorCreatedAt", in: "query", schema: { type: "string", format: "date-time" }, description: "Debe ir junto con cursorId" },
+          { name: "cursorCreatedAt", in: "query", schema: { type: "string", format: "date-time" }, description: "Must be sent together with cursorId" },
           { name: "cursorId", in: "query", schema: { type: "string", format: "uuid" } },
         ],
         responses: {
@@ -234,14 +233,14 @@ export const openApiSpec = {
       },
       post: {
         tags: ["Messages"],
-        summary: "Enviar un mensaje (debes ser miembro del canal)",
+        summary: "Send a message (you must be a member of the channel)",
         parameters: [{ name: "channelId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object", required: ["content"], properties: { content: { type: "string", minLength: 1, maxLength: 4000 } } } } },
         },
         responses: {
-          "201": { description: "Mensaje enviado", content: { "application/json": { schema: { type: "object", properties: { message: { $ref: "#/components/schemas/Message" } } } } } },
+          "201": { description: "Message sent", content: { "application/json": { schema: { type: "object", properties: { message: { $ref: "#/components/schemas/Message" } } } } } },
           "403": { $ref: "#/components/responses/Forbidden" },
           "400": { $ref: "#/components/responses/ValidationError" },
         },
@@ -250,35 +249,35 @@ export const openApiSpec = {
     "/messages/read-receipts": {
       post: {
         tags: ["Messages"],
-        summary: "Marcar mensajes como leídos",
+        summary: "Mark messages as read",
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object", required: ["messageIds"], properties: { messageIds: { type: "array", items: { type: "string", format: "uuid" } } } } } },
         },
-        responses: { "204": { description: "Marcados" } },
+        responses: { "204": { description: "Marked" } },
       },
     },
     "/messages/{messageId}": {
       patch: {
         tags: ["Messages"],
-        summary: "Editar un mensaje propio (o cualquiera si eres admin)",
+        summary: "Edit your own message (or anyone's if you're an admin)",
         parameters: [{ name: "messageId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object", required: ["content"], properties: { content: { type: "string", minLength: 1, maxLength: 4000 } } } } },
         },
         responses: {
-          "200": { description: "Mensaje editado", content: { "application/json": { schema: { type: "object", properties: { message: { $ref: "#/components/schemas/Message" } } } } } },
+          "200": { description: "Message edited", content: { "application/json": { schema: { type: "object", properties: { message: { $ref: "#/components/schemas/Message" } } } } } },
           "403": { $ref: "#/components/responses/Forbidden" },
           "404": { $ref: "#/components/responses/NotFound" },
         },
       },
       delete: {
         tags: ["Messages"],
-        summary: "Eliminar (soft delete) un mensaje propio, o cualquiera si eres admin",
+        summary: "Delete (soft delete) your own message, or anyone's if you're an admin",
         parameters: [{ name: "messageId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: {
-          "204": { description: "Eliminado" },
+          "204": { description: "Deleted" },
           "403": { $ref: "#/components/responses/Forbidden" },
           "404": { $ref: "#/components/responses/NotFound" },
         },
@@ -287,14 +286,14 @@ export const openApiSpec = {
     "/copilot/ask": {
       post: {
         tags: ["Copilot"],
-        summary: "Preguntarle al copiloto de IA (RAG sobre los canales del usuario)",
+        summary: "Ask the AI copilot (RAG over the user's own channels)",
         requestBody: {
           required: true,
           content: { "application/json": { schema: { type: "object", required: ["question"], properties: { question: { type: "string", minLength: 1, maxLength: 1000 } } } } },
         },
         responses: {
           "200": {
-            description: "Respuesta del copiloto",
+            description: "Copilot's answer",
             content: {
               "application/json": {
                 schema: {

@@ -15,9 +15,9 @@ answer short. It's fine for the answer to be a few sentences or a short
 list when the context supports it; being complete matters more than being brief.`;
 
 /**
- * Adaptador concreto para OpenAI. Implementa los dos puertos (chat +
- * embeddings) porque acá una sola API key cubre ambos, pero nada impide
- * partirlo en dos clases separadas si algún proyecto llega a mezclar proveedores.
+ * Concrete adapter for OpenAI. Implements both ports (chat + embeddings)
+ * since one API key covers both here, but nothing stops splitting them
+ * into two separate classes if a project ever mixes providers.
  */
 export class OpenAIProvider implements ILLMProvider, IEmbeddingProvider {
   private readonly client: OpenAI;
@@ -37,10 +37,10 @@ export class OpenAIProvider implements ILLMProvider, IEmbeddingProvider {
     const completion = await this.client.chat.completions.create({
       model: env.OPENAI_CHAT_MODEL,
       temperature: 0.2,
-      // Explícito a propósito: la respuesta por defecto de la API ya
-      // alcanzaría, pero preferimos no depender de un default que un
-      // cambio de SDK/modelo podría bajar y terminar cortando respuestas a
-      // mitad de camino cuando de verdad hay varios mensajes que resumir.
+      // Explicit on purpose: the API's own default would be enough, but we'd
+      // rather not depend on a default that a future SDK/model change could
+      // lower and end up truncating answers halfway when there's genuinely
+      // several messages to summarize.
       max_tokens: 600,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },

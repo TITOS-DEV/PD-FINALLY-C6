@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { AskCopilotResponse } from '../../../core/models/copilot.model';
 
-/** Wrapper HTTP fino sobre /api/copilot/ask. El estado de la conversación vive en CopilotPanel. */
+/** HTTP wrapper service for `/api/copilot/ask`. Conversation state is managed by `CopilotPanel`. */
 @Injectable({ providedIn: 'root' })
 export class CopilotService {
   private readonly http = inject(HttpClient);

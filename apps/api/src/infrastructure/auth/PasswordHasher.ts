@@ -1,11 +1,10 @@
 import bcrypt from "bcryptjs";
 
 /**
- * Wrapper delgado sobre bcrypt para que los casos de uso dependan de un
- * nombre de método ("hash"/"compare"), no de la librería bcrypt
- * directamente. Uso bcryptjs (JS puro) en vez de bcrypt nativo para
- * evitarme dolores de cabeza compilando código nativo en Docker, quedando
- * 100% compatible con los hashes `$2b$...` ya sembrados en el seed.
+ * Thin wrapper around bcrypt so use cases depend on a method name
+ * ("hash"/"compare"), not on the bcrypt library directly. Using bcryptjs
+ * (pure JS) instead of native bcrypt avoids native build headaches in
+ * Docker while staying 100% hash-compatible with the seeded `$2b$...` values.
  */
 export class PasswordHasher {
   private readonly saltRounds = 10;

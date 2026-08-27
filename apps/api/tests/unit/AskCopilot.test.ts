@@ -30,14 +30,14 @@ describe("AskCopilot", () => {
       { messageId: "m1", channelId: "c1", content: "strong match", authorName: "Ana", createdAt: new Date(), similarity: 0.85 },
       { messageId: "m2", channelId: "c1", content: "weak match", authorName: "Ana", createdAt: new Date(), similarity: 0.2 },
     ]);
-    vi.mocked(llmProvider.generateAnswer).mockResolvedValue("La respuesta es X");
+    vi.mocked(llmProvider.generateAnswer).mockResolvedValue("The answer is X");
 
     const useCase = new AskCopilot(embeddingProvider, llmProvider, embeddingRepository);
-    const result = await useCase.execute({ userId: "u1", question: "¿qué dijo Ana?" });
+    const result = await useCase.execute({ userId: "u1", question: "what did Ana say?" });
 
-    // La coincidencia débil no debe llegar nunca al LLM como contexto, ni
-    // aparecer nunca como "fuente" a la que el frontend le atribuya la respuesta.
-    expect(llmProvider.generateAnswer).toHaveBeenCalledWith("¿qué dijo Ana?", ["strong match"]);
+    // The weak match must never reach the LLM as context, nor show up as a
+    // "source" that the frontend attributes the answer to.
+    expect(llmProvider.generateAnswer).toHaveBeenCalledWith("what did Ana say?", ["strong match"]);
     expect(result.sources).toHaveLength(1);
     expect(result.sources[0]?.messageId).toBe("m1");
   });
@@ -46,10 +46,10 @@ describe("AskCopilot", () => {
     const { embeddingProvider, llmProvider, embeddingRepository } = buildDeps();
     vi.mocked(embeddingProvider.embed).mockResolvedValue([0.5]);
     vi.mocked(embeddingRepository.findSimilarInUserChannels).mockResolvedValue([]);
-    vi.mocked(llmProvider.generateAnswer).mockResolvedValue("No tengo suficiente información");
+    vi.mocked(llmProvider.generateAnswer).mockResolvedValue("I don't have enough information");
 
     const useCase = new AskCopilot(embeddingProvider, llmProvider, embeddingRepository);
-    await useCase.execute({ userId: "u42", question: "algo" });
+    await useCase.execute({ userId: "u42", question: "something" });
 
     expect(embeddingRepository.findSimilarInUserChannels).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "u42" })

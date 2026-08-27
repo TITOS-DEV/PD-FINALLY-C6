@@ -12,9 +12,9 @@ export class CreateChannel {
 
   async execute(input: CreateChannelInput): Promise<Channel> {
     const channel = await this.channelRepository.create(input);
-    // Sin esto, el creador terminaría dueño de un canal que ni siquiera
-    // puede leer — todas las políticas de SELECT en rw_channels/rw_messages
-    // exigen membresía, `created_by` solo no da acceso.
+    // Without this, the creator would own a channel they can't even read —
+    // every SELECT policy on rw_channels/rw_messages requires membership,
+    // `created_by` alone doesn't grant access.
     await this.channelRepository.addMember(channel.id, input.createdBy);
     return channel;
   }

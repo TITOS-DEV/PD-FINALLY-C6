@@ -17,10 +17,9 @@ export interface AuthenticateUserOutput {
 }
 
 /**
- * Login. Corre antes de saber quién llama, así que se conecta (en
- * container.ts) con repositorios respaldados por el contexto de sistema de
- * la BD — todavía no hay ningún `auth.uid()` que setear, ese es justo el
- * punto de este caso de uso.
+ * Login. Runs before we know who the caller is, so it's wired (in
+ * container.ts) with repositories backed by the system DB context — there's
+ * no `auth.uid()` to set yet, that's the whole point of this use case.
  */
 export class AuthenticateUser {
   constructor(
@@ -33,9 +32,8 @@ export class AuthenticateUser {
   async execute(input: AuthenticateUserInput): Promise<AuthenticateUserOutput> {
     const user = await this.userRepository.findByEmail(input.email);
 
-    // El mismo mensaje genérico sea que el email no exista o que la
-    // contraseña esté mal — distinguirlos le permitiría a un atacante
-    // enumerar emails válidos.
+    // Same generic message whether the email doesn't exist or the password
+    // is wrong — telling them apart would let an attacker enumerate emails.
     if (!user) throw new UnauthorizedError("Invalid email or password");
 
     const passwordMatches = await this.passwordHasher.compare(input.password, user.passwordHash);
@@ -43,14 +41,15 @@ export class AuthenticateUser {
 
     const accessToken = this.jwtService.signAccessToken({ sub: user.id, role: user.role });
 
-    // "Rotación" también arranca acá: un login nuevo revoca cualquier
-    // refresh token que existiera antes, así que el índice único parcial
-    // (idx_rw_active_refresh_token_unique) nunca ve dos filas activas para
-    // el mismo usuario — un segundo dispositivo logueándose saca en
-    // silencio al refresh token del primero, a propósito, no es un bug.
-    // `replaceActiveToken` es quien resuelve, del lado de infraestructura,
-    // la carrera de dos logins casi simultáneos para el mismo usuario (ver
-    // SupabaseRefreshTokenRepository) — el caso de uso no necesita saber nada de eso.
+    // "Rotation" starts here too: a fresh login also revokes whatever
+    // refresh token existed before, so the partial unique index
+    // (idx_rw_active_refresh_token_unique) never sees two active rows for
+    // the same user — a second device logging in silently kicks out the
+    // first one's refresh token, on purpose, not a bug.
+    // `replaceActiveToken` is what handles, on the infrastructure side, the
+    // race between two near-simultaneous logins for the same user (see
+    // SupabaseRefreshTokenRepository) — the use case doesn't need to know
+    // anything about that.
     const rawRefreshToken = this.jwtService.generateRefreshToken();
     await this.refreshTokenRepository.replaceActiveToken({
       userId: user.id,

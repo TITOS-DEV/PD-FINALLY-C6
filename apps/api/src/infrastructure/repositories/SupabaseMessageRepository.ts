@@ -39,24 +39,24 @@ function toEntityWithAuthor(row: MessageWithAuthorRow): MessageWithAuthor {
 }
 
 export class SupabaseMessageRepository implements IMessageRepository {
-  // `db` es un cliente de pg que ya pasó por `withRLSContext`, así que cada
-  // consulta de acá abajo se ejecuta como el rol de Postgres `authenticated`
-  // con `request.jwt.claims.sub` seteado al usuario actual. Las políticas
-  // `rw_messages_*` (ver database/rls/activate_rls.sql) hacen el control de
-  // acceso real — esta clase solo escribe SQL plano y confía en que la BD lo haga cumplir.
+  // `db` is a pg client that already had `withRLSContext` run on it, so
+  // every query below is executed as Postgres role `authenticated` with
+  // `request.jwt.claims.sub` set to the current user. The `rw_messages_*`
+  // policies (see database/rls/activate_rls.sql) do the actual gatekeeping —
+  // this class just writes plain SQL and trusts the DB to enforce access.
   constructor(private readonly db: IDbClient) {}
 
   async create(input: SendMessageInput): Promise<MessageWithAuthor> {
-    // Acá no chequeamos membresía — eso es trabajo de la política RLS de
-    // insert (`rw_messages_insert`, que exige user_id = auth.uid() Y que el
-    // usuario sea miembro del canal) más, una capa arriba, el caso de uso
-    // SendMessage para dar un error más amigable antes de siquiera tocar la BD.
+    // We don't check membership here — that's the job of the RLS insert
+    // policy (`rw_messages_insert`, which requires user_id = auth.uid() AND
+    // the user being a member of the channel) plus, one layer up, the
+    // SendMessage use case for a friendlier error before we even hit the DB.
     //
-    // El INSERT y el JOIN con rw_users van en pasos separados: un solo
-    // `INSERT ... RETURNING` no puede traer columnas de otra tabla, así que
-    // insertamos primero y resolvemos el nombre del autor con la segunda
-    // consulta — que en este caso siempre es el usuario autenticado (lo
-    // acabamos de insertar nosotros mismos), no hace falta un JOIN de verdad.
+    // The INSERT and the JOIN with rw_users go in separate steps: a single
+    // `INSERT ... RETURNING` can't bring back columns from another table,
+    // so we insert first and resolve the author's name with a second
+    // query — which in this case is always the authenticated user (we
+    // just inserted them ourselves), so it's not really a "join" in spirit.
     const { rows } = await this.db.query<MessageRow>(
       `INSERT INTO rw_messages (channel_id, user_id, content, status)
        VALUES ($1, $2, $3, 'sent')
@@ -74,19 +74,19 @@ export class SupabaseMessageRepository implements IMessageRepository {
   }
 
   async findByChannel({ channelId, cursor, limit }: GetChannelMessagesInput): Promise<MessageWithAuthor[]> {
-    // Paginación por keyset: en vez de "saltate N filas" (OFFSET), le
-    // pedimos a Postgres las filas "estrictamente más viejas que este punto
-    // exacto del orden". Como el orden es (created_at DESC, id DESC) y
-    // tenemos el índice compuesto idx_rw_messages_channel_created que
-    // calza exacto con eso, esto es un único recorrido de índice sin
-    // importar qué tan atrás esté el historial — un OFFSET 50000 obligaría
-    // a Postgres a recorrer y descartar 50000 filas primero. La comparación
-    // de valores en fila `(created_at, id) < (a, b)` es lo que hace correcto
-    // el desempate por `id` cuando dos mensajes comparten el mismo milisegundo.
+    // Keyset pagination: instead of "skip N rows" (OFFSET), we ask
+    // Postgres for "rows strictly older than this exact point in the
+    // ordering". Because the ordering is (created_at DESC, id DESC) and we
+    // have the composite index idx_rw_messages_channel_created matching it
+    // exactly, this is a single index range scan no matter how deep the
+    // history is — OFFSET 50000 would force Postgres to walk and discard
+    // 50000 rows first. The row-value comparison `(created_at, id) < (a, b)`
+    // is what makes the tie-break on `id` correct when two messages share
+    // the same millisecond timestamp.
     //
-    // El JOIN con rw_users trae el nombre del autor — sin esto, el frontend
-    // no tiene forma de distinguir quién escribió cada mensaje ajeno más
-    // que por su userId crudo.
+    // The JOIN with rw_users brings back the author's name — without it,
+    // the frontend has no way to tell who wrote someone else's message
+    // beyond their raw userId.
     if (cursor) {
       const { rows } = await this.db.query<MessageWithAuthorRow>(
         `SELECT m.*, u.name AS author_name
@@ -120,10 +120,10 @@ export class SupabaseMessageRepository implements IMessageRepository {
   }
 
   async updateContent(id: string, content: string): Promise<MessageWithAuthor> {
-    // El UPDATE en sí lo protege la política RLS `rw_messages_update`
-    // (user_id = auth.uid() OR is_admin()) — EditMessage además valida la
-    // autoría antes de llegar acá, para poder devolver un 403 amigable en
-    // vez de que la fila simplemente no se actualice en silencio.
+    // The UPDATE itself is protected by the `rw_messages_update` RLS
+    // policy (user_id = auth.uid() OR is_admin()) — EditMessage also
+    // validates authorship before reaching here, so it can return a
+    // friendly 403 instead of the row silently not updating.
     const { rows } = await this.db.query<MessageRow>(
       `UPDATE rw_messages SET content = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
       [content, id]
@@ -139,10 +139,9 @@ export class SupabaseMessageRepository implements IMessageRepository {
   }
 
   async softDelete(id: string): Promise<void> {
-    // El DELETE físico está prohibido para esta tabla — solo marcamos
-    // deleted_at. La política de update del RLS igual chequea
-    // user_id = auth.uid() OR is_admin(), así que esto no se puede usar
-    // para borrar el mensaje de otra persona.
+    // Physical DELETE is forbidden for this table — we only ever stamp
+    // deleted_at. The RLS update policy still checks user_id = auth.uid()
+    // OR is_admin(), so this can't be used to erase someone else's message.
     await this.db.query(
       `UPDATE rw_messages SET deleted_at = NOW(), status = 'deleted' WHERE id = $1`,
       [id]

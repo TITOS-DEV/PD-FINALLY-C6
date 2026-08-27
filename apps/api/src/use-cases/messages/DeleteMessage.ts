@@ -9,10 +9,10 @@ export interface DeleteMessageInput {
 }
 
 /**
- * Soft delete solamente — el DELETE físico está prohibido para
- * `rw_messages` (ver DECISIONS.md). Autor o admin pueden borrar, mismo
- * criterio que la política RLS `rw_messages_update` (el soft delete es,
- * técnicamente, un UPDATE de `deleted_at`).
+ * Soft delete only — physical DELETE is forbidden for `rw_messages` (see
+ * DECISIONS.md). Author or admin can delete, same criterion as the
+ * `rw_messages_update` RLS policy (soft delete is, technically, an UPDATE
+ * of `deleted_at`).
  */
 export class DeleteMessage {
   constructor(private readonly messageRepository: IMessageRepository) {}

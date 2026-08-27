@@ -28,12 +28,12 @@ services:
     container_name: riwi-web
     ports:
       - "${WEB_PORT:-4200}:80"
-    # No necesita su propio .env: la URL de la API queda fija en tiempo de
-    # build (Angular resuelve `environment.ts` así, ver
-    # src/environments/environment.development.ts) apuntando a
-    # http://localhost:4000 — como docker-compose publica los dos
-    # contenedores directo al host, desde el navegador eso es exactamente
-    # correcto sin importar que el backend esté en Docker o corriendo suelto.
+    # Does not need its own .env: the API URL is fixed at build time
+    # (Angular resolves `environment.ts` this way, see
+    # src/environments/environment.development.ts) pointing to
+    # http://localhost:4000 — as docker-compose exposes both
+    # containers directly to host ports, browser requests work identically
+    # regardless of whether the backend runs in Docker or standalone.
     depends_on:
       - api
     restart: unless-stopped

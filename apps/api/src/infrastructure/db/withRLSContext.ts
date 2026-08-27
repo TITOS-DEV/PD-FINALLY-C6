@@ -3,27 +3,27 @@ import { pool } from "./pool";
 import { IDbClient } from "../../domain/database/IDbClient";
 
 /**
- * Esta es la pieza que hace que el Row Level Security funcione de verdad
- * con NUESTROS PROPIOS JWT en vez del Auth nativo de Supabase (GoTrue).
+ * This is the piece that makes Row Level Security actually work with our
+ * OWN JWTs instead of Supabase's built-in auth (GoTrue).
  *
- * Contexto: en un setup normal de Supabase, las requests pasan por
- * PostgREST, que lee el JWT y, por cada consulta, corre:
+ * Background: in a normal Supabase setup, requests go through PostgREST,
+ * which reads the JWT, and — for every query — runs:
  *
- *   SET LOCAL request.jwt.claims = '{"sub": "<id-del-usuario>", "role": "authenticated"}';
+ *   SET LOCAL request.jwt.claims = '{"sub": "<user-id>", "role": "authenticated"}';
  *   SET LOCAL ROLE authenticated;
  *
- * Eso es exactamente lo que desbloquea `auth.uid()` dentro de las políticas
- * RLS (es solo una función SQL que lee esa variable de sesión). Como
- * emitimos nuestros propios access tokens en vez de pasar por GoTrue, nadie
- * nos setea esas variables — así que lo hacemos nosotros mismos, a mano,
- * en cada request autenticado, envuelto en una transacción para que nunca
- * se filtre a otra request que comparta la misma conexión pooleada.
+ * That's exactly what unlocks `auth.uid()` inside RLS policies (it's just a
+ * SQL function reading that session variable). Since we're issuing our own
+ * access tokens instead of going through GoTrue, nobody sets those
+ * variables for us — so we do it ourselves, by hand, for every authenticated
+ * request, wrapped in a transaction so it never leaks into another request
+ * sharing the same pooled connection.
  *
- * El pool de `pg` en sí se conecta como un rol con privilegios (el usuario
- * "postgres" de Supabase), que es justo lo que hace posible el `SET LOCAL
- * ROLE authenticated` — solo puedes cambiarte a un rol del que seas
- * miembro. Nos auto-degradamos a propósito, en cada request, para que un
- * bug en nuestro propio código NUNCA pueda saltarse el RLS por accidente.
+ * The `pg` pool itself connects as a privileged role (the Supabase
+ * "postgres" user), which is what makes `SET LOCAL ROLE authenticated`
+ * possible in the first place — you can only switch into a role you're a
+ * member of. We downgrade on purpose, on every request, so a bug in our own
+ * code can *never* skip RLS by accident.
  */
 export async function withRLSContext<T>(
   userId: string,
@@ -34,9 +34,9 @@ export async function withRLSContext<T>(
   try {
     await client.query("BEGIN");
 
-    // `set_config(..., true)` con `true` al final significa "local a la
-    // transacción": se resetea solo en el COMMIT/ROLLBACK, así que nunca
-    // puede filtrarse a lo que haga la próxima request en esta misma conexión pooleada.
+    // `set_config(..., true)` with `true` at the end means "transaction-local":
+    // it's automatically reset at COMMIT/ROLLBACK, so it can never bleed into
+    // whatever the next request on this pooled connection does.
     await client.query(
       `SELECT set_config('request.jwt.claims', $1, true)`,
       [JSON.stringify({ sub: userId, role: "authenticated" })]
@@ -49,9 +49,9 @@ export async function withRLSContext<T>(
     return result;
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {
-      // Si el ROLLBACK mismo falla, la conexión ya está muerta; liberarla
-      // abajo marcada como error hace que `pg` la destruya en vez de
-      // devolver al pool un cliente posiblemente corrupto.
+      // If ROLLBACK itself fails the connection is already dead; releasing
+      // it below with an error flag makes `pg` destroy it instead of
+      // returning a possibly-corrupted client to the pool.
     });
     throw error;
   } finally {
@@ -60,14 +60,13 @@ export async function withRLSContext<T>(
 }
 
 /**
- * La misma idea, pero para trabajo de sistema/background que no está atado
- * a un usuario final específico (ej. generar un embedding justo después de
- * guardar un mensaje). Corre como el rol privilegiado del pool, que es
- * exactamente lo que espera la política `rw_message_embeddings_insert`
- * (`TO service_role`).
+ * Same idea, but for background/system work that isn't tied to a specific
+ * end user (e.g. generating an embedding right after a message is saved).
+ * Runs as the privileged pool role, which is exactly what the
+ * `rw_message_embeddings_insert` policy expects (`TO service_role`).
  *
- * Lo dejo separado de withRLSContext a propósito: usar esta función debería
- * ser siempre una decisión deliberada, nunca un accidente.
+ * Kept separate from withRLSContext on purpose: reaching for this one
+ * should always be a deliberate choice, not an accident.
  */
 export async function withSystemContext<T>(work: (db: IDbClient) => Promise<T>): Promise<T> {
   const client: PoolClient = await pool.connect();

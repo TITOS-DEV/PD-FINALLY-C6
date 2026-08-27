@@ -1,37 +1,45 @@
 # Riwi Internal Messenger
 
-Plataforma de mensajería interna en tiempo real con seguridad a nivel de fila (RLS) en PostgreSQL/Supabase y un copiloto de IA con RAG (busca en tus propios mensajes y te responde con eso).
+Real-time internal messaging platform featuring Row Level Security (RLS) in PostgreSQL/Supabase and an AI Copilot with RAG (searches within your own messages to answer queries).
 
-Este README es para levantar el **backend** (`apps/api`). La base de datos ya vive en un proyecto de Supabase real — no hay Postgres local en este repo (ver [DECISIONS.md](./DECISIONS.md) para el porqué).
+This README is for setting up the **backend** (`apps/api`) and **frontend** (`apps/web`). The database lives in a real Supabase project — there is no local Postgres in this repo by design (see [DECISIONS.md](./DECISIONS.md) for details).
 
 ---
 
-## 1. Qué necesitas instalado
+## 1. Prerequisites
 
-- Node.js 20 o superior
-- pnpm (`corepack enable` si no lo tienes, o `npm i -g pnpm`)
-- Una cuenta y un proyecto en [Supabase](https://supabase.com) (plan gratis alcanza)
-- Docker + Docker Compose (opcional, solo si quieres correrlo en contenedor)
-- Una API key de OpenAI (o de Gemini) para el copiloto
+- Node.js 20 or higher
+- pnpm (`corepack enable` if not installed, or `npm i -g pnpm`)
+- An account and project on [Supabase](https://supabase.com) (free plan is sufficient)
+- Docker + Docker Compose (optional, if running in containers)
+- An OpenAI API key (or Gemini API key) for the copilot
 
-## 2. Estructura del proyecto
+## 2. Project Structure
 
 ```
-apps/api/                  → el backend (Node.js + TypeScript, Clean Architecture)
-  src/domain/               → entidades, interfaces de repos y de IA (no depende de nada externo)
-  src/use-cases/             → la lógica de cada funcionalidad (login, enviar mensaje, preguntar al copiloto...)
-  src/infrastructure/        → implementación real: Postgres (pg), JWT, adaptadores de IA
-  src/presentation/          → Express, rutas, middlewares, WebSockets
-  tests/unit/                 → pruebas rápidas con dobles de prueba (no tocan la BD)
-  tests/e2e/                  → pruebas contra tu Supabase real
-database/                  → DDL, RLS, triggers, vistas, seed (ya aplicados en el Supabase real, quedan acá como referencia y para poder reconstruir la BD)
-docker-compose.yml         → levanta el backend en contenedor
-.env.example               → plantilla de variables de entorno
+apps/api/                  → Backend (Node.js + TypeScript, Clean Architecture)
+  src/domain/               → Entities, repository interfaces, and AI providers (no external dependencies)
+  src/use-cases/             → Business logic (login, send message, ask copilot, etc.)
+  src/infrastructure/        → Real implementations: Postgres (pg), JWT, AI adapters
+  src/presentation/          → Express, routes, middlewares, WebSockets
+  tests/unit/                 → Fast unit tests with test doubles (no DB connection needed)
+  tests/e2e/                  → E2E tests running against your real Supabase instance
+database/                  → DDL, RLS, triggers, views, seeds (reference schema & migration runner)
+docker-compose.yml         → Container orchestrator for backend & frontend services
+.env.example               → Environment variables template
 ```
 
-## 3. Preparar la base de datos en Supabase
+## 3. Database Setup in Supabase
 
-Si tu proyecto de Supabase todavía no tiene las tablas `rw_*`, corre estos archivos **en este orden exacto** desde el SQL Editor de Supabase (o con `psql` usando el connection string de tu proyecto):
+The easiest method — a single migration script that runs everything in proper order (tables, indexes, triggers, RLS, views, and seeds):
+
+```bash
+./database/migrate.sh
+```
+
+Reads `DATABASE_URL` from your `.env` file (or from environment variables), and populates 3 test users / 2 channels / 2 sample messages. Designed for a new project or rebuilding schema from scratch. Triggers and RLS policies in Postgres are non-idempotent, so re-running the script may output `ERROR: ... already exists` (tolerated gracefully by the script).
+
+To execute each step manually (e.g. via Supabase SQL Editor), run in this exact order:
 
 ```bash
 psql "$DATABASE_URL" -f database/ddl/tables.sql
@@ -42,64 +50,62 @@ psql "$DATABASE_URL" -f database/views/view_conversations.sql
 psql "$DATABASE_URL" -f database/seeds/seed.sql
 ```
 
-> `database/ddl/tables.sql` no incluye `rw_message_embeddings`, `rw_message_read_status` ni `rw_refresh_tokens` (esas quedaron documentadas en el MER, `database/MER.pdf`). Si tu proyecto de Supabase no las tiene todavía, créalas con esa misma forma antes de correr `activate_rls.sql`, que sí las referencia.
+The seed creates 3 test users with password **`Password123!`**:
 
-El seed deja 3 usuarios de prueba, todos con la contraseña **`Password123!`**:
-
-| Usuario | Email | Rol |
+| User | Email | Role |
 |---|---|---|
 | Admin Riwi | admin@riwi.io | admin |
 | Jhonatan Cadavid | jhonatan@riwi.io | user |
 | Sofia Gomez | sofia@riwi.io | user |
 
-Y 2 canales: **General** (los 3 usuarios) y **Desarrollo Cohorte 6** (solo Jhonatan y Sofia — útil para probar que RLS bloquea al admin ahí).
+And 2 channels: **General** (includes all 3 users) and **Desarrollo Cohorte 6** (includes Jhonatan and Sofia — useful for testing RLS block on admin).
 
-## 4. Variables de entorno
+## 4. Environment Variables
 
 ```bash
 cp .env.example .env
 ```
 
-Completa al menos:
+Configure at least:
 
-- `DATABASE_URL`: en Supabase, ve a **Project Settings → Database → Connection string**. Usa el modo **"Session pooler"** (host tipo `aws-0-<region>.pooler.supabase.com:5432`), **no** "Direct connection" ni "Transaction pooler":
-  - La conexión **directa** (`db.<ref>.supabase.co`) solo tiene dirección **IPv6** salvo que pagues el add-on de IPv4 de Supabase — la mayoría de redes caseras, de CI o de Docker no tienen salida IPv6 y vas a ver un error `ENETUNREACH`.
-  - El **Session pooler** sí es IPv4 y se comporta idéntico a la conexión directa (mantiene la sesión completa), así que nuestro truco de `BEGIN` / `SET LOCAL ROLE` / `COMMIT` para activar RLS (ver DECISIONS.md) sigue funcionando sin cambiar nada de código.
-  - El **Transaction pooler** (mismo host, puerto `6543`) también es IPv4 pero rota la conexión física entre sentencias de una forma que choca con los prepared statements de `pg` — evítalo acá.
-- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`: cualquier string largo y random. Por ejemplo: `openssl rand -hex 32`.
-- `OPENAI_API_KEY`: para que el copiloto funcione. Si prefieres Gemini, pon `AI_PROVIDER=gemini` y `GEMINI_API_KEY`.
+- `DATABASE_URL`: In Supabase, navigate to **Project Settings → Database → Connection string**. Use **"Session pooler"** mode (`aws-0-<region>.pooler.supabase.com:5432`), **not** "Direct connection" or "Transaction pooler":
+  - **Direct connection** (`db.<ref>.supabase.co`) is IPv6-only unless paying for IPv4 add-on — IPv6 is often unreachable in local/Docker/CI environments.
+  - **Session pooler** supports IPv4 and preserves session variables required by `BEGIN` / `SET LOCAL ROLE` / `COMMIT` RLS strategy (see DECISIONS.md).
+  - **Transaction pooler** (port `6543`) conflicts with `pg` prepared statements.
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`: Random secret string (e.g., `openssl rand -hex 32`).
+- `OPENAI_API_KEY`: For copilot features. If using Gemini, set `AI_PROVIDER=gemini` and `GEMINI_API_KEY`.
 
-## 5. Levantar el proyecto
+## 5. Running the Application
 
-### Opción A — local, sin Docker
+### Option A — Local Development (no Docker)
 
 ```bash
 pnpm install
 pnpm --filter @riwi/api dev
 ```
 
-El servidor queda escuchando en `http://localhost:4000`.
+The API server runs on `http://localhost:4000`.
 
-### Opción B — con Docker
+### Option B — Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Mismo resultado, en un contenedor. El `docker-compose.yml` solo levanta el servicio `api` (no hay Postgres local: la base de datos es tu proyecto real de Supabase).
+Builds and starts both the `api` and `web` services.
 
-Verifica que levantó bien:
+Verify health status:
 
 ```bash
 curl http://localhost:4000/health
 # {"status":"ok"}
 ```
 
-## 6. Probar los endpoints principales
+## 6. Testing Key Endpoints
 
-Todas las rutas viven bajo `/api`. Cada respuesta incluye un header `X-Correlation-ID` — mándalo tú mismo si quieres seguirle el rastro a una request en los logs, o deja que el servidor te genere uno.
+All REST routes live under `/api`. Each response includes an `X-Correlation-ID` header.
 
-### Login
+### Authentication (Login)
 
 ```bash
 curl -X POST http://localhost:4000/api/auth/login \
@@ -107,48 +113,46 @@ curl -X POST http://localhost:4000/api/auth/login \
   -d '{"email":"jhonatan@riwi.io","password":"Password123!"}'
 ```
 
-Guarda el `accessToken` y el `refreshToken` de la respuesta.
+Returns `accessToken` and `refreshToken`.
 
-### Listar mis canales
+### List User Channels
 
 ```bash
 curl http://localhost:4000/api/channels \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-### Enviar un mensaje
+### Send Message
 
 ```bash
 curl -X POST http://localhost:4000/api/channels/a1111111-1111-1111-1111-111111111111/messages \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"content":"Hola equipo!"}'
+  -d '{"content":"Hello team!"}'
 ```
 
-### Leer mensajes (paginación por keyset)
+### Read Messages (Keyset Pagination)
 
 ```bash
-# primera página
+# First page
 curl "http://localhost:4000/api/channels/a1111111-1111-1111-1111-111111111111/messages?limit=20" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# la respuesta trae "nextCursor": { "createdAt": "...", "id": "..." } — úsalo así:
+# Subsequent page using nextCursor
 curl "http://localhost:4000/api/channels/a1111111-1111-1111-1111-111111111111/messages?limit=20&cursorCreatedAt=<createdAt>&cursorId=<id>" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-### Preguntarle al copiloto (RAG)
+### Ask Copilot (RAG)
 
 ```bash
 curl -X POST http://localhost:4000/api/copilot/ask \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"question":"¿Qué se ha hablado sobre RLS?"}'
+  -d '{"question":"What has been discussed regarding RLS?"}'
 ```
 
-Solo va a encontrar contexto en mensajes de canales a los que ese usuario pertenece — pruébalo logueado como `admin@riwi.io` preguntando algo que solo se habló en "Desarrollo Cohorte 6" y compara la respuesta.
-
-### Refrescar el access token
+### Refresh Access Token
 
 ```bash
 curl -X POST http://localhost:4000/api/auth/refresh \
@@ -156,9 +160,7 @@ curl -X POST http://localhost:4000/api/auth/refresh \
   -d '{"refreshToken":"'$REFRESH_TOKEN'"}'
 ```
 
-Te devuelve un par nuevo. El `refreshToken` que usaste queda revocado — si intentas usarlo otra vez, te va a rechazar (así se detecta un token robado que un atacante intenta reusar).
-
-### WebSocket (mensajes en tiempo real)
+### WebSockets (Real-time Messaging)
 
 ```js
 import { io } from "socket.io-client";
@@ -167,94 +169,71 @@ const socket = io("http://localhost:4000", { auth: { token: accessToken } });
 
 socket.on("connect", () => {
   socket.emit("join:channel", "a1111111-1111-1111-1111-111111111111", (joined) => {
-    console.log("¿me pude unir?", joined); // false si no eres miembro del canal
+    console.log("Joined successfully?", joined);
   });
 });
 
-socket.on("message:new", (message) => console.log("nuevo mensaje:", message));
+socket.on("message:new", (message) => console.log("New message:", message));
 ```
 
-## 7. Correr las pruebas
+## 7. Running Tests
 
 ```bash
 cd apps/api
 
-# unitarias: rápidas, con dobles de prueba, no necesitan .env
+# Unit tests: fast, uses mocks, no database required
 pnpm test
 
-# e2e: pegan contra tu Supabase real (necesitas el .env configurado y el seed aplicado)
+# E2E tests: connects against real Supabase database
 pnpm test:e2e
 
-# las dos juntas
+# All tests
 pnpm test:all
 ```
 
-## 8. Documentación adicional
+## 8. Additional Documentation
 
-- [DECISIONS.md](./DECISIONS.md) — por qué se tomó cada decisión técnica importante, explicado sin vueltas.
-- `database/MER.pdf` — diagrama entidad-relación completo.
+- [DECISIONS.md](./DECISIONS.md) — Technical decision log and architecture rationale.
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — Architectural layer diagrams and request flows.
+- [EVALUACION_REQUISITOS.md](./EVALUACION_REQUISITOS.md) — Requirements compliance evaluation.
+- `database/MER.pdf` — Entity-Relationship Diagram.
 
 ---
 
 # Frontend (apps/web)
 
-Angular 21 (standalone + Signals), con estética Fluent/Microsoft 365 y Tailwind CSS.
+Angular 21 (standalone components + Signals), Fluent/Microsoft 365 design system, and Tailwind CSS.
 
-> **Nota de versión:** el enunciado pedía "la última versión estable" de Angular. Al armar el proyecto, la v22 (la más nueva) exige Node ≥22.22.3 / ≥24.15.0 / ≥26, una versión más nueva que la disponible en el entorno de desarrollo. Por eso el proyecto quedó en **Angular 21.2** (la estable anterior, totalmente soportada). Si tu máquina tiene Node 24.15+ o 26+, podés subir con `ng update @angular/core@22 @angular/cli@22`. Ver DECISIONS.md, sección 12.
-
-## 1. Qué necesitas instalado
-
-- Node.js 20.19+, 22.12+ o 24+ (ver la nota de arriba)
-- pnpm (el monorepo completo usa pnpm workspaces)
-- El backend de `apps/api` corriendo (ver la sección de arriba) — el frontend no funciona solo, necesita la API para todo: login, canales, mensajes, copiloto.
-
-## 2. Variables de entorno
-
-A diferencia del backend, Angular no lee un `.env` en tiempo de ejecución — todo se resuelve en **tiempo de build**, en los archivos de `src/environments/`:
-
-- `environment.development.ts`: el que se usa con `ng serve` / `npm start`. Ya viene apuntando a `http://localhost:4000` (el backend local).
-- `environment.ts`: el que se usa en `ng build` (producción). Trae rutas relativas (`/api`) asumiendo que el frontend se sirve detrás del mismo dominio/reverse proxy que la API.
-
-Si tu backend corre en otro puerto o dominio, edita el archivo que corresponda antes de compilar.
-
-## 3. Levantar el frontend en desarrollo
+## 1. Development Setup
 
 ```bash
 cd apps/web
-pnpm install   # si no lo hiciste ya desde la raíz del monorepo
-pnpm start     # alias de `ng serve`
+pnpm install
+pnpm start
 ```
 
-Queda en `http://localhost:4200`. Necesita el backend corriendo en paralelo (`http://localhost:4000` por defecto) para que el login y todo lo demás funcionen.
+App runs at `http://localhost:4200`. Requires backend running at `http://localhost:4000`.
 
-## 4. Compilar para producción
+## 2. Production Build
 
 ```bash
 cd apps/web
 pnpm run build
 ```
 
-El resultado queda en `apps/web/dist/web/browser` — listo para servir con cualquier servidor de archivos estáticos (Nginx, Caddy, etc.) detrás del mismo dominio que la API, o configurando CORS si quedan en dominios distintos (ver `CORS_ORIGIN` en el `.env` del backend).
+Build output is generated in `apps/web/dist/web/browser`.
 
-## 5. Estructura del proyecto
+## 3. Project Structure
 
 ```
 src/app/
-  core/               → servicios de toda la app: auth (login/refresh/logout), i18n, WebSocket
+  core/               → Application services: auth, i18n, WebSockets
   features/
-    auth/               → pantalla de login/registro
-    chat/                 → canales, historial de mensajes, el composer
-    copilot/              → el panel de IA con RAG
-    profile/              → tarjeta de usuario + selector de idioma
-  shared/ui/          → piezas visuales reutilizables sin lógica de negocio (Avatar, EmptyState, Toast...)
-public/i18n/          → diccionarios de traducción (es.json, en.json)
+    auth/               → Authentication pages (login)
+    chat/                 → Channels, message history, composer
+    copilot/              → AI RAG panel
+    profile/              → User profile & language picker
+  shared/ui/          → Reusable UI components (Avatar, EmptyState, Toast, Skeleton)
+public/i18n/          → Translation files (es.json, en.json)
 ```
-
-## 6. Probarlo
-
-1. Levanta el backend (ver arriba) y aplica el seed si todavía no lo hiciste.
-2. Levanta el frontend (`pnpm start`) y entra a `http://localhost:4200`.
-3. Inicia sesión con `jhonatan@riwi.io` / `Password123!` (ver la tabla de usuarios sembrados más arriba).
-4. Deberías ver tus canales a la izquierda, el chat en el centro y el copiloto a la derecha (en mobile, los dos primeros son drawers que se abren con los botones de la barra superior).
-5. Envía un mensaje — debería aparecer al toque como "Enviando…" y pasar a confirmado apenas el backend responde.
-6. Pregúntale algo al copiloto sobre lo que se habló en tus canales — la respuesta debería venir con las fuentes citadas debajo.
+Link to watch the video demo: https://youtu.be/J5kHbo64mOM

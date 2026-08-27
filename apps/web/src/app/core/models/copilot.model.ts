@@ -1,4 +1,4 @@
-/** Una fuente citada por el copiloto — de qué mensaje real salió el fragmento usado en la respuesta. */
+/** Grounding source citation emitted by Copilot backend service. */
 export interface CopilotSource {
   messageId: string;
   channelId: string;
@@ -12,7 +12,7 @@ export interface AskCopilotResponse {
   sources: CopilotSource[];
 }
 
-/** Un turno de la conversación con el copiloto, tal como se muestra en el panel. */
+/** Conversation turn model rendered within `CopilotPanel`. */
 export interface CopilotTurn {
   id: string;
   question: string;

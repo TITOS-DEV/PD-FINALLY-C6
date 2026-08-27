@@ -10,15 +10,15 @@ export interface SendMessageInput {
 }
 
 /**
- * Enviar un mensaje se cuida por partida doble, a propósito:
- *   1. Acá, en el caso de uso: chequeamos membresía primero para que
- *      alguien que no es miembro reciba un 403 claro de "no perteneces a
- *      este canal" en vez de un resultado confuso.
- *   2. En Postgres, vía la política RLS `rw_messages_insert`: aunque este
- *      chequeo se llegara a borrar o tuviera un bug algún día, el INSERT en
- *      sí igual quedaría rechazado por la base de datos.
- * Eso es "defensa en profundidad" — la capa de app es para una buena
- * experiencia de usuario, la capa de BD es la barrera de seguridad real, imposible de saltar.
+ * Sending a message is guarded twice, on purpose:
+ *   1. Here, in the use case: we check membership first so a non-member
+ *      gets a clear 403 "you're not in this channel" instead of a
+ *      confusing empty result.
+ *   2. In Postgres, via the `rw_messages_insert` RLS policy: even if this
+ *      check were ever removed or had a bug, the INSERT itself would still
+ *      be rejected by the database.
+ * That's "defense in depth" — the app layer is for good UX, the DB layer
+ * is the actual, unbypassable security boundary.
  */
 export class SendMessage {
   constructor(

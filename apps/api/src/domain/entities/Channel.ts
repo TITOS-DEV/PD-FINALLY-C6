@@ -1,4 +1,4 @@
-/** Un canal de mensajería. Refleja la tabla `rw_channels`. */
+/** A messaging channel. Mirrors the `rw_channels` table. */
 export interface Channel {
   id: string;
   name: string;
@@ -8,7 +8,7 @@ export interface Channel {
   updatedAt: Date;
 }
 
-/** Fila de membresía de `rw_channel_members` (PK compuesta: channelId + userId). */
+/** Membership row from `rw_channel_members` (composite PK: channelId + userId). */
 export interface ChannelMember {
   channelId: string;
   userId: string;

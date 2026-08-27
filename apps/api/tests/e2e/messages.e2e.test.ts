@@ -26,7 +26,7 @@ describe("Messages flow (e2e)", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(list.status).toBe(200);
-    expect(list.body.messages[0].content).toBe(content); // el más nuevo primero
+    expect(list.body.messages[0].content).toBe(content); // newest first
   });
 
   it("paginates by keyset instead of OFFSET — the cursor always yields older, non-repeating rows", async () => {
@@ -55,7 +55,7 @@ describe("Messages flow (e2e)", () => {
   });
 
   it("blocks reading a channel the user doesn't belong to, even with a valid token", async () => {
-    // El seed solo pone a jhonatan y sofia en "Desarrollo Cohorte 6" — admin no es miembro.
+    // The seed only puts jhonatan and sofia in "Desarrollo Cohorte 6" — admin isn't a member.
     const token = await loginAs(SEED_USERS.admin.email);
 
     const res = await request(app)
@@ -71,7 +71,7 @@ describe("Messages flow (e2e)", () => {
     const res = await request(app)
       .post(`/api/channels/${SEED_CHANNELS.devCohorte6}/messages`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ content: "intento no autorizado" });
+      .send({ content: "unauthorized attempt" });
 
     expect(res.status).toBe(403);
   });
@@ -100,16 +100,16 @@ describe("Messages flow (e2e)", () => {
     const blocked = await request(app)
       .patch(`/api/messages/${messageId}`)
       .set("Authorization", `Bearer ${otherToken}`)
-      .send({ content: "hackeado" });
+      .send({ content: "hacked" });
     expect(blocked.status).toBe(403);
 
     const edited = await request(app)
       .patch(`/api/messages/${messageId}`)
       .set("Authorization", `Bearer ${authorToken}`)
-      .send({ content: "editado" });
+      .send({ content: "edited" });
     expect(edited.status).toBe(200);
-    expect(edited.body.message.content).toBe("editado");
-    // updatedAt tiene que moverse — es lo que el frontend usa para mostrar "(editado)".
+    expect(edited.body.message.content).toBe("edited");
+    // updatedAt has to move — that's what the frontend uses to show "(edited)".
     expect(edited.body.message.updatedAt).not.toBe(sent.body.message.updatedAt);
   });
 
@@ -120,7 +120,7 @@ describe("Messages flow (e2e)", () => {
     const sent = await request(app)
       .post(`/api/channels/${SEED_CHANNELS.general}/messages`)
       .set("Authorization", `Bearer ${authorToken}`)
-      .send({ content: `para borrar ${Date.now()}` });
+      .send({ content: `to delete ${Date.now()}` });
     const messageId = sent.body.message.id as string;
 
     const blocked = await request(app)

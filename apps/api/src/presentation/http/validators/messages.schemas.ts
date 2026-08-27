@@ -17,9 +17,9 @@ export const editMessageSchema = z.object({
 });
 
 /**
- * El cursor de keyset llega como dos query params. Los dos tienen que venir
- * juntos o ninguno — `.refine` obliga eso en vez de dejarlo como un
- * contrato implícito que solo conoce el frontend.
+ * The keyset cursor arrives as two query params. Both must come together
+ * or neither — `.refine` enforces that instead of leaving it as an
+ * implicit contract only the frontend knows about.
  */
 export const getMessagesQuerySchema = z
   .object({

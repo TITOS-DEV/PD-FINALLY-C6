@@ -11,15 +11,14 @@ export interface EditMessageInput {
 }
 
 /**
- * Igual que con SendMessage, la autoría se valida dos veces:
- *   1. Acá, para poder devolver un 403 claro ("no puedes editar el mensaje
- *      de otra persona") en vez de que el UPDATE simplemente no afecte
- *      ninguna fila y quede en un limbo confuso.
- *   2. La política RLS `rw_messages_update` (user_id = auth.uid() OR
- *      is_admin()) es la que de verdad no deja pasar el UPDATE si alguien
- *      se salta esta capa.
- * Los admins pueden editar cualquier mensaje — mismo criterio que ya usa la
- * política RLS, no es una regla nueva inventada acá.
+ * Same as SendMessage, authorship is validated twice:
+ *   1. Here, so we can return a clear 403 ("you can't edit someone else's
+ *      message") instead of the UPDATE simply affecting no rows and
+ *      leaving things in a confusing limbo.
+ *   2. The `rw_messages_update` RLS policy (user_id = auth.uid() OR
+ *      is_admin()) is what actually stops the UPDATE if anyone skips this layer.
+ * Admins can edit any message — same criterion the RLS policy already
+ * uses, not a new rule invented here.
  */
 export class EditMessage {
   constructor(private readonly messageRepository: IMessageRepository) {}

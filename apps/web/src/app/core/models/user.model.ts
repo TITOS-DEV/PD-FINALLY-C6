@@ -1,7 +1,4 @@
-/**
- * Espejo del `PublicUser` que devuelve el backend (login/register) — nunca
- * trae el hash de la contraseña, el backend ya se encarga de eso.
- */
+/** Interface matching backend `PublicUser` response. */
 export type UserRole = 'user' | 'admin';
 
 export interface User {

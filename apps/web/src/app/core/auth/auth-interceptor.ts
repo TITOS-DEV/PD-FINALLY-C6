@@ -5,30 +5,29 @@ import { BehaviorSubject, Observable, catchError, filter, switchMap, take, throw
 import { AuthService } from './auth.service';
 
 /**
- * Endpoints de auth que NUNCA deben llevar el `Authorization` header ni
- * disparar el flujo de refresh si responden 401. Si /auth/refresh entrara
- * en esta lógica, un refresh token vencido dispararía un refresh... del
- * refresh... para siempre.
+ * Auth endpoints that must NEVER carry the `Authorization` header nor
+ * trigger the refresh flow if they respond 401. If /auth/refresh went
+ * through this logic, an expired refresh token would trigger a refresh...
+ * of the refresh... forever.
  */
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
 
 /**
- * Este par de variables vive a nivel de MÓDULO, no dentro de la función del
- * interceptor. Un interceptor funcional es literalmente solo una función
- * (`HttpInterceptorFn`) que Angular reutiliza para cada request — no hay
- * una instancia de clase donde guardar "estado". Pero el archivo que la
- * define sí se carga una sola vez, así que estas variables de acá arriba
- * cumplen el mismo rol que haría una propiedad privada en una clase:
- * memoria compartida entre todas las llamadas al interceptor durante toda
- * la vida de la app.
+ * This pair of variables lives at MODULE level, not inside the
+ * interceptor function. A functional interceptor is literally just a
+ * function (`HttpInterceptorFn`) that Angular reuses for every request —
+ * there's no class instance to hold "state" in. But the file that defines
+ * it does load only once, so these top-level variables play the same role
+ * a private class property would: shared memory across every call to the
+ * interceptor for the whole lifetime of the app.
  *
- * `isRefreshing` evita que dos (o veinte) requests que fallan con 401 al
- * mismo tiempo disparen veinte llamadas a /auth/refresh en paralelo — cosa
- * que además ROMPERÍA la rotación de tokens del backend, que solo permite
- * un refresh token activo por usuario a la vez (ver DECISIONS.md). En vez
- * de eso, la primera request que ve el 401 hace el refresh; todas las
- * demás esperan el resultado en `refreshedToken$` y reintentan con el
- * token nuevo apenas llega.
+ * `isRefreshing` stops two (or twenty) requests that fail with 401 at the
+ * same time from firing twenty parallel calls to /auth/refresh — which
+ * would also BREAK the backend's token rotation, which only allows one
+ * active refresh token per user at a time (see DECISIONS.md). Instead,
+ * the first request that sees the 401 does the refresh; all the others
+ * wait for the result on `refreshedToken$` and retry with the new token
+ * as soon as it arrives.
  */
 let isRefreshing = false;
 const refreshedToken$ = new BehaviorSubject<string | null>(null);
@@ -40,10 +39,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const isAuthEndpoint = AUTH_ENDPOINTS.some((path) => req.url.includes(path));
   const token = authService.accessToken();
 
-  // Le pegamos el Bearer token a toda request que no sea de auth y que
-  // tengamos un access token para mandar. Las de auth van sin header
-  // (login/register ni siquiera tienen sesión todavía; refresh/logout
-  // mandan el refresh token en el body, no en el header).
+  // We attach the Bearer token to every request that isn't an auth one
+  // and for which we have an access token to send. Auth requests go
+  // without the header (login/register don't even have a session yet;
+  // refresh/logout send the refresh token in the body, not the header).
   const authorizedReq =
     !isAuthEndpoint && token ? addAuthHeader(req, token) : req;
 
@@ -65,11 +64,11 @@ function addAuthHeader(req: HttpRequest<unknown>, token: string): HttpRequest<un
 }
 
 /**
- * Un 401 en una request normal (no de auth) significa "tu access token ya
- * expiró". Acá intentamos renovarlo una sola vez y reintentar la request
- * original con el token nuevo — todo esto es invisible para el componente
- * que hizo la request original, que solo ve la respuesta final (exitosa o
- * el error real si el refresh también falla).
+ * A 401 on a normal (non-auth) request means "your access token already
+ * expired". Here we try to renew it once and retry the original request
+ * with the new token — all of this is invisible to the component that
+ * made the original request, which only sees the final response
+ * (successful, or the real error if the refresh also fails).
  */
 function handleUnauthorized(
   req: HttpRequest<unknown>,
@@ -79,7 +78,7 @@ function handleUnauthorized(
 ): Observable<any> {
   if (!isRefreshing) {
     isRefreshing = true;
-    refreshedToken$.next(null); // marca "hay un refresh en curso, todavía sin resultado"
+    refreshedToken$.next(null); // marks "a refresh is in progress, no result yet"
 
     return authService.refreshSession().pipe(
       switchMap((res) => {
@@ -88,8 +87,8 @@ function handleUnauthorized(
         return next(addAuthHeader(req, res.accessToken));
       }),
       catchError((refreshError: unknown) => {
-        // El refresh token también está vencido/revocado — no hay forma de
-        // recuperar la sesión, así que cerramos sesión y mandamos al login.
+        // The refresh token is also expired/revoked — there's no way to
+        // recover the session, so we log out and send the user to login.
         isRefreshing = false;
         authService.logout().subscribe();
         router.navigate(['/login']);
@@ -98,10 +97,10 @@ function handleUnauthorized(
     );
   }
 
-  // Ya hay otra request haciendo el refresh — nos enganchamos a su
-  // resultado en vez de disparar uno nuevo. `filter` descarta el `null`
-  // inicial (todavía sin resultado) y `take(1)` nos desengancha apenas
-  // llega el primer token nuevo, para no quedar escuchando para siempre.
+  // Another request is already doing the refresh — we hook into its
+  // result instead of firing a new one. `filter` discards the initial
+  // `null` (no result yet) and `take(1)` unhooks us as soon as the first
+  // new token arrives, so we don't stay listening forever.
   return refreshedToken$.pipe(
     filter((token): token is string => token !== null),
     take(1),

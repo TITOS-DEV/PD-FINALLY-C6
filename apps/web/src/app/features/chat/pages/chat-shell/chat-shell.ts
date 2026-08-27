@@ -6,11 +6,9 @@ import { CopilotPanel } from '../../../copilot/components/copilot-panel/copilot-
 import { ProfileCard } from '../../../profile/components/profile-card/profile-card';
 
 /**
- * Layout raíz de la app autenticada: arma las 3 zonas del enunciado
- * (canales + perfil, chat, copiloto) en un grid responsivo. En pantallas
- * grandes las tres columnas se ven a la vez; en mobile, canales y copiloto
- * se convierten en drawers que se abren por encima del chat, para no
- * competir por espacio en una pantalla chica.
+ * Root authenticated layout shell component: structures 3 core layout zones
+ * (channels list + profile, main chat view, copilot assistant panel) within a responsive grid.
+ * Manages mobile drawer toggles and WebSocket connection lifecycle.
  */
 @Component({
   selector: 'app-chat-shell',

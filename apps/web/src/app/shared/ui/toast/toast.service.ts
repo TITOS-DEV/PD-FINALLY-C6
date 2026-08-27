@@ -5,7 +5,7 @@ export type ToastType = 'error' | 'success' | 'info';
 export interface Toast {
   id: string;
   type: ToastType;
-  /** Clave de traducción, NUNCA texto crudo — así el toast también respeta el idioma activo. */
+  /** i18n translation key (never raw strings) to support active locale switching. */
   messageKey: string;
   params?: Record<string, unknown>;
 }
@@ -13,10 +13,9 @@ export interface Toast {
 const AUTO_DISMISS_MS = 5000;
 
 /**
- * Cola de notificaciones simple, con un signal como única fuente de
- * verdad. Cualquier parte de la app (interceptores, servicios, componentes)
- * puede llamar `toastService.error('errors.sendFailed')` sin importar el
- * componente visual — `ToastContainer` es el único que lee `toasts()` y los dibuja.
+ * Toast notification service powered by Signals state management.
+ * Application services and components trigger toasts via `toastService.error('errors.sendFailed')`
+ * independently of visual component rendering.
  */
 @Injectable({ providedIn: 'root' })
 export class ToastService {

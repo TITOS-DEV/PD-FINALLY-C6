@@ -1,194 +1,193 @@
-# DECISIONS.md - Justificación de Decisiones Técnicas
+# DECISIONS.md - Technical Decision Log & Rationale
 
-**Proyecto:** Riwi Internal Messenger  
-**Autor:** Jhonatan Cadavid Betancur (17 años)  
-**Rol:** Fullstack Developer en formación  
-
----
-
-## 1. Arquitectura de Datos y Normalización hasta 3FN
-
-Decidí estructurar las tablas separando de forma atómica los usuarios, los canales, las membresías y los mensajes. 
-
-* **Por qué 3FN:** Para evitar redundancias. La información del usuario (nombre, email, rol) existe únicamente en `rw_users`. Si un usuario cambia su nombre, no hay que actualizar decenas de registros en la tabla de mensajes.
-* **Prefijo `rw_`:** Todas las tablas y restricciones llevan el prefijo para mantener consistencia y evitar colisiones de nombres dentro de Esquemas compartidos en PostgreSQL.
+**Project:** Riwi Internal Messenger  
+**Author:** Jhonatan Cadavid Betancur  
+**Role:** Fullstack Developer in Training  
 
 ---
 
-## 2. Seguridad a Nivel de Datos (RLS en PostgreSQL vs Backend)
+## 1. Data Architecture and Normalization up to 3NF
 
-En lugar de confiarle toda la seguridad a la capa de aplicación (Node.js), decidí activar **Row Level Security (RLS)** directamente en PostgreSQL.
+I structured the database tables by atomically separating users, channels, channel memberships, and messages.
 
-* **Razones:** Si por alguna razón el backend llega a tener un bug en un filtro SQL, la base de datos se encarga de rechazar la consulta si el usuario no pertenece al canal.
-* **Optimización con `is_admin()`:** Para evitar que la consulta de RLS haga llamadas recursivas infinitas sobre la tabla `rw_users` al verificar roles, cree la función `SECURITY DEFINER SET search_path = public`. Esto valida si un usuario es administrador en una sola ejecución aislada de forma súper rápida.
-
----
-
-## 3. Paginación Keyset vs Paginación OFFSET
-
-Para la lectura del historial de mensajes (`Consulta 1`), decidí implementar **Paginación por Keyset** usando `(created_at, id) < (cursor_date, cursor_id)` en lugar del clásico `OFFSET / LIMIT`.
-
-* **Razones:** El `OFFSET` se vuelve extremadamente lento cuando la tabla crece (Postgres tiene que leer y descartar miles de filas antes de entregar las solicitadas). Con Keyset, la consulta aprovecha directamente el índice B-Tree `idx_rw_messages_channel_created`, haciendo que la paginación sea instantánea $O(1)$ sin importar qué tan atrás en el historial esté el usuario.
+* **Why 3NF:** To eliminate data redundancy. User information (name, email, role) exists solely in `rw_users`. If a user updates their name, we do not need to update dozens of records across message tables.
+* **`rw_` Prefix:** All tables, constraints, and custom functions use the `rw_` prefix to maintain consistency and prevent naming collisions within shared PostgreSQL schemas.
 
 ---
 
-## 4. Estrategia de Soft Delete en Mensajes
+## 2. Data-Level Security (PostgreSQL RLS vs Backend Enforcement)
 
-El borrado físico (`DELETE FROM rw_messages`) está prohibido en los requerimientos del proyecto.
+Rather than placing full security enforcement responsibility on the application layer (Node.js), I activated **Row Level Security (RLS)** directly in PostgreSQL.
 
-* **Implementación:** Utilicé una columna `deleted_at TIMESTAMPTZ`. Cuando un usuario elimina un mensaje, simplemente marcamos la fecha actual. 
-* **Ventaja:** Preservamos la integridad referencial para auditorías, el historial del chat no rompe secuencias y los índices vectoriales de la IA se pueden filtrar fácilmente excluyendo registros donde `deleted_at IS NOT NULL`.
-
----
-
-## 5. Índice Vectorial HNSW para el Copiloto (RAG)
-
-Para la tabla `rw_message_embeddings`, creé un índice vectorial utilizando el algoritmo **HNSW (Hierarchical Navigable Small World)** con la distancia coseno (`vector_cosine_ops`).
-
-* **Razones:** HNSW ofrece un rendimiento de búsqueda por similitud de vectores muy superior a IVFFlat en tablas dinámicas que reciben inserciones constantes, ya que no requiere re-entrenar el índice periódicamente para mantener la precisión de búsqueda en las respuestas de la IA.
+* **Rationale:** If the backend ever encounters a bug in a SQL filter or route check, the database engine independently rejects any unauthorized query if the user does not belong to the requested channel.
+* **Optimization via `is_admin()`:** To prevent infinite recursive calls on `rw_users` when validating roles during RLS policy execution, I implemented a custom security definer function (`SECURITY DEFINER SET search_path = public`). This performs admin check execution in a fast, isolated query.
 
 ---
 
-## 6. Autenticación y Refresh Tokens con Rotación
+## 3. Keyset Pagination vs OFFSET Pagination
 
-En lugar de usar tokens de sesión eternos, implementé un par de tokens: **Access Token (JWT)** de corta duración y **Refresh Token** persistido en BD.
+For message history retrieval (`Query 1`), I implemented **Keyset Pagination** using `(created_at, id) < (cursor_date, cursor_id)` instead of traditional `OFFSET / LIMIT`.
 
-* **Índice Único Parcial:** Implementé el índice `idx_rw_active_refresh_token_unique` sobre `rw_refresh_tokens (user_id) WHERE revoked_at IS NULL`. Esto garantiza a nivel de base de datos que un usuario solo puede tener **un único refresh token activo a la vez**, invalidando sesiones antiguas automáticamente cuando solicita un nuevo token y previniendo ataques de reutilización.
-
----
-
-## 7. Arquitectura del backend: por qué separé todo en 4 capas (Clean Architecture)
-
-El backend (`apps/api`) lo dividí en `domain`, `use-cases`, `infrastructure` y `presentation`. La primera vez que uno ve esto piensa "uy, cuántas carpetas para algo tan simple", así que dejo la explicación de por qué vale la pena acá y no solo por seguir una moda.
-
-* **La regla es simple: las flechas apuntan hacia adentro.** `domain` (mis entidades como `User` o `Message`, y las interfaces tipo `IMessageRepository`) no importa nada de Express, ni de `pg`, ni de OpenAI. `use-cases` (como `SendMessage.ts` o `AskCopilot.ts`) solo conoce esas interfaces del dominio, nunca la implementación real. Y `infrastructure` (donde sí vive `pg`, JWT, OpenAI) es la que implementa esas interfaces.
-* **¿Por qué me importa esto y no es solo orden?** Porque si mañana me toca cambiar de Supabase a otro Postgres, o de OpenAI a Gemini, el cambio queda encerrado en `infrastructure` y en una línea del `.env`. Mi lógica de negocio (`SendMessage`, `AskCopilot`) ni se entera. Eso lo pueden ver literal en `AIProviderFactory.ts`: es un `switch` de una línea por proveedor, y el caso de uso `AskCopilot.ts` ni siquiera importa la palabra "OpenAI" en ningún lado.
-* **También hace las pruebas más fáciles.** En `tests/unit/SendMessage.test.ts` pruebo la lógica de "no dejes mandar un mensaje vacío" o "no dejes mandar un mensaje a un canal donde no eres miembro" sin necesitar Postgres corriendo — le paso objetos falsos (mocks) que cumplen la interfaz `IMessageRepository`, y ya. Eso no seria posible si `SendMessage` tuviera código de `pg` mezclado adentro.
-* **`presentation` es la capa más "sucia" a propósito.** Ahí sí vive Express, las rutas, Zod para validar el `body`, Socket.io. Es la única capa que le puede hablar directo al mundo exterior (HTTP, WebSockets). Un controller como `MessageController.ts` es puro pegamento: recibe el request, llama al caso de uso, devuelve la respuesta. No tiene lógica de negocio propia.
+* **Rationale:** `OFFSET` degrades rapidly as datasets scale because Postgres must scan and discard thousands of rows before returning requested results. Keyset pagination leverages the B-Tree index `idx_rw_messages_channel_created` directly, delivering instant $O(1)$ page fetches regardless of how deep into chat history a user scrolls.
 
 ---
 
-## 8. Cómo activo el RLS de Postgres usando MI PROPIO JWT (sin el Auth de Supabase)
+## 4. Soft Delete Strategy for Messages
 
-Esta fue la parte más rara de entender al principio, así que la explico con calma porque es clave para que todo el punto 2 (RLS) funcione de verdad.
+Physical hard deletion (`DELETE FROM rw_messages`) is strictly prohibited by project requirements.
 
-* **El problema:** `auth.uid()` (la función que usan TODAS mis políticas RLS) no es magia — es una función de SQL bien simple que lee una variable de sesión de Postgres llamada `request.jwt.claims`. Normalmente, quien pone esa variable en cada consulta es PostgREST, la pieza de Supabase que atiende las peticiones cuando usas su sistema de Auth (GoTrue). Como yo hice mi propio login con mis propios JWT (ver punto 6), nadie le está poniendo esa variable a Postgres por mí — si no hago nada, `auth.uid()` siempre me da `NULL` y todas las políticas fallan.
-* **La solución (`withRLSContext.ts`):** Por cada request autenticado, abro una transacción de Postgres a mano y ejecuto exactamente lo mismo que haría PostgREST:
+* **Implementation:** Uses a `deleted_at TIMESTAMPTZ` column. When a user deletes a message, we mark the timestamp.
+* **Advantage:** Preserves referential integrity for auditability, avoids breaking conversation flow sequences, and allows vector search indexes for AI copilot queries to easily filter out deleted content (`deleted_at IS NULL`).
+
+---
+
+## 5. HNSW Vector Index for Copilot (RAG)
+
+For the `rw_message_embeddings` table, I created a vector index using the **HNSW (Hierarchical Navigable Small World)** algorithm with cosine distance (`vector_cosine_ops`).
+
+* **Rationale:** HNSW offers superior vector similarity search performance compared to IVFFlat on dynamic tables experiencing ongoing inserts, as it does not require periodic index re-clustering/re-training to maintain high search recall.
+
+---
+
+## 6. Authentication and Refresh Tokens with Rotation
+
+Rather than using long-lived stateless tokens or simple session IDs, I implemented token pairs: short-lived **Access Tokens (JWT)** and database-persisted **Refresh Tokens**.
+
+* **Partial Unique Index:** Implemented `idx_rw_active_refresh_token_unique` on `rw_refresh_tokens (user_id) WHERE revoked_at IS NULL`. This guarantees at the database engine level that a user can only hold **one active refresh token at any given time**, automatically revoking older sessions when a new token is issued and neutralizing token reuse attacks.
+
+---
+
+## 7. Backend Architecture: Clean Architecture Rationale
+
+The backend (`apps/api`) is structured into `domain`, `use-cases`, `infrastructure`, and `presentation`. Below is the practical reasoning behind this multi-layered separation:
+
+* **Inward Dependency Rule:** `domain` (entities like `User` or `Message`, repository interfaces like `IMessageRepository`) contains zero dependencies on Express, `pg`, or OpenAI. `use-cases` (such as `SendMessage.ts` or `AskCopilot.ts`) depend strictly on domain abstractions. `infrastructure` contains concrete implementations (`pg`, JWT, OpenAI SDK).
+* **Maintainability & Decoupling:** If we switch from OpenAI to Gemini or migrate database drivers, changes remain isolated inside `infrastructure` and a single configuration line. Business logic (`SendMessage`, `AskCopilot`) remains completely untouched. See `AIProviderFactory.ts`: a single-line switch per provider without importing vendor SDKs inside use cases.
+* **Fast Unit Testing:** In `tests/unit/SendMessage.test.ts`, business validation (e.g., rejecting empty messages or non-member posting) runs in milliseconds using mock implementations of `IMessageRepository` without requiring a running database.
+* **Encapsulated Presentation Layer:** `presentation` handles Express, route definitions, Zod validation, and Socket.io events. Controllers such as `MessageController.ts` parse requests, invoke use cases, and format HTTP responses without embedding domain business rules.
+
+---
+
+## 8. Custom JWT Integration with PostgreSQL RLS
+
+This details how custom application JWTs integrate directly with PostgreSQL Row Level Security without relying on Supabase Auth (GoTrue):
+
+* **Mechanism:** `auth.uid()` (used across RLS policies) reads the Postgres session variable `request.jwt.claims`. Usually PostgREST sets this variable. Since we generate custom JWTs (Section 6), `withRLSContext.ts` sets this session context explicitly.
+* **Transaction Isolation (`withRLSContext.ts`):** For each authenticated request, a database transaction is opened to set session config:
   ```sql
   BEGIN;
-  SELECT set_config('request.jwt.claims', '{"sub":"<id-del-usuario>","role":"authenticated"}', true);
+  SELECT set_config('request.jwt.claims', '{"sub":"<user-id>","role":"authenticated"}', true);
   SET LOCAL ROLE authenticated;
-  -- acá corren las consultas del request
+  -- Request queries run here
   COMMIT;
   ```
-  El `true` al final de `set_config` significa "esto solo dura mientras dure la transacción" — apenas hago `COMMIT` o `ROLLBACK`, esa variable desaparece sola. Esto es importante porque uso un *pool* de conexiones que se reutilizan entre requests distintos: si esa variable se quedara "pegada", el siguiente request que agarre esa misma conexión podría heredar por accidente la identidad de otro usuario. Con transacción de por medio, eso no puede pasar.
-* **¿Y por qué puedo hacer `SET ROLE authenticated` así como así?** Porque mi backend se conecta a Postgres con un usuario con privilegios (el que trae Supabase por defecto), y solo puedes cambiarte a un rol (`SET ROLE`) del que seas miembro. O sea: mi backend se conecta "fuerte" pero se **auto-degrada** a `authenticated` en cada request antes de tocar una sola tabla. Aunque yo mismo tenga un bug en mi código de Node, nunca voy a poder saltarme el RLS por accidente, porque literalmente estoy corriendo como el mismo rol limitado que usaría cualquier request normal de Supabase.
-* **Por qué usé `pg` directo y no el cliente de `@supabase/supabase-js`:** ese cliente habla con la base de datos a través de PostgREST usando la `anon key` o la `service_role key`. La `service_role key` **se salta el RLS completo** (es literalmente para tareas de administrador), y la `anon key` espera JWT firmados por el Auth de Supabase, no los míos. Ninguna de las dos me sirve para lo que necesito acá, así que fui directo con una conexión de Postgres normal (`pg.Pool`) y armé yo mismo el mecanismo de arriba.
+  The third parameter (`is_local = true`) scopes `set_config` strictly to the transaction lifecycle. Upon `COMMIT` or `ROLLBACK`, session variables reset automatically. This prevents connection pool state leakage between distinct HTTP requests.
+* **Role Demotion (`SET ROLE authenticated`):** The backend connects using elevated privileges but **self-demotes** to `authenticated` within each transaction before touching user data tables. Even in the event of an application-level bug, queries cannot bypass RLS policy boundaries.
+* **Direct `pg` Connection:** We connect via `pg.Pool` directly rather than `@supabase/supabase-js` to retain control over session variables and transaction-level RLS context switching.
 
 ---
 
-## 9. El "adaptador" de IA: para poder cambiar de OpenAI a Gemini sin tocar la lógica
+## 9. AI Adapter Pattern: Decoupling LLM & Vector Providers
 
-El copiloto necesita dos cosas de un proveedor de IA: convertir texto en un vector (`embeddings`, para poder "buscar por significado") y generar una respuesta en lenguaje natural (`chat`). En vez de llamar a `openai.chat.completions.create(...)` directo desde mi caso de uso `AskCopilot.ts`, hice dos interfaces bien simples en el dominio: `ILLMProvider` (genera respuestas) e `IEmbeddingProvider` (genera vectores).
+The copilot requires two capabilities: text-to-vector embedding generation and natural language chat completion. Instead of hardcoding vendor SDK calls inside `AskCopilot.ts`, domain ports `ILLMProvider` and `IEmbeddingProvider` define these contracts.
 
-* **Por qué:** `AskCopilot.ts` recibe esas interfaces por el constructor y nunca sabe si detrás hay OpenAI, Gemini, o cualquier otra cosa que alguien conecte después. Quien sí decide cuál usar es `AIProviderFactory.ts`, que lee la variable `AI_PROVIDER` del `.env` y devuelve `new OpenAIProvider()` o `new GeminiProvider()`. Cambiar de proveedor es literalmente cambiar una línea del `.env`, nada de código.
-* **La parte sincera que hay que aclarar:** cambiar el modelo de **chat** es gratis, no rompe nada. Pero cambiar el modelo de **embeddings** no es tan simple, y no quise esconder eso. La columna `rw_message_embeddings.embedding` está creada como `vector(1536)` (el tamaño que usa `text-embedding-3-small` de OpenAI), y el índice HNSW del punto 5 está armado sobre ese tamaño fijo. Si mañana alguien pone `AI_PROVIDER=gemini`, el modelo de embeddings de Gemini que usé de ejemplo genera vectores de 768 dimensiones, no 1536 — y eso simplemente no entra en la columna. Lo dejé comentado bien explícito en `GeminiProvider.ts` para que a nadie le agarre de sorpresa: la interfaz es intercambiable, pero cambiar de verdad el modelo de embeddings en producción implica además migrar la columna vectorial (o elegir un modelo de Gemini que sí dé 1536 dimensiones). Preferí ser honesto con esa limitación en vez de fingir que el adaptador resuelve absolutamente todo solo.
-
----
-
-## 10. Manejo de errores: simple, pero centralizado
-
-No quise complicarme con un sistema de errores gigante. La regla que seguí es una sola: **ninguna capa de negocio le habla directo a Express**. Ni `use-cases` ni `infrastructure` hacen `res.status(...)` — simplemente hacen `throw` de una clase de error.
-
-* **`AppError`:** es la clase base (vive en `domain/errors/AppError.ts`), y tiene hijas bien concretas: `ValidationError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), `ConflictError` (409). Cada una ya sabe su propio código HTTP y un "code" en texto (como `"FORBIDDEN"`) para que el frontend pueda reaccionar sin tener que leer el mensaje en español/inglés.
-* **`errorHandler.ts`:** es el único lugar de todo el proyecto que decide cómo se ve una respuesta de error. Si el error es un `AppError`, confía en su `statusCode` y lo devuelve tal cual. Si es cualquier otra cosa (un bug mío, un error crudo de Postgres, lo que sea), nunca se lo muestra al cliente tal cual — lo registra completo en el log del servidor (con su `X-Correlation-ID` para poder rastrearlo) y al cliente solo le devuelve un genérico `500 - Something went wrong`. Así nunca se filtra por accidente un mensaje de error de SQL o un stack trace a alguien de afuera.
-* **`asyncHandler.ts`:** es un detalle chiquito pero importante — como uso `async/await` en todos los controllers, si algo revienta adentro de una función async, Express (en la versión que uso) no lo agarra solo y la petición se queda colgada. Este wrapper hace que cualquier error async llegue siempre al `errorHandler`.
+* **Flexibility:** `AskCopilot.ts` depends solely on domain contracts. `AIProviderFactory.ts` checks `AI_PROVIDER` from environment variables to instantiate `OpenAIProvider` or `GeminiProvider`.
+* **Embedding Model Nuances:** While chat completion models can be swapped seamlessly, changing embedding dimensions requires schema alignment. `rw_message_embeddings.embedding` is typed as `vector(1536)` (matching OpenAI `text-embedding-3-small`). Swapping to a 768-dimension provider requires modifying column dimensions or using a compatible 1536-dimension embedding model.
 
 ---
 
-## 11. Pruebas: unitarias con mentiras (mocks) y e2e contra el Supabase real
+## 10. Error Handling Strategy
 
-Dividí las pruebas en dos grupos bien distintos, cada uno con su propósito:
+Errors are handled via a centralized, predictable pipeline:
 
-* **Unitarias (`tests/unit`, corren con `pnpm test`):** prueban un caso de uso solo, dándole objetos falsos en vez de repositorios reales (por ejemplo, en `SendMessage.test.ts` le doy un `IMessageRepository` de mentira que no toca ninguna base de datos). Son rapidísimas y no necesitan ni internet ni el `.env` configurado — sirven para probar la lógica pura, como "si el mensaje viene vacío, recházalo" o "si el usuario no es miembro del canal, no lo dejes escribir".
-* **End-to-end (`tests/e2e`, corren con `pnpm test:e2e`):** estas sí levantan la app de Express completa (con `supertest`) y pegan contra mi proyecto real de Supabase, usando los usuarios que ya vienen en el seed. Decidí no montar un Postgres de mentira aparte porque quería probar el mecanismo completo — JWT propio, RLS activándose de verdad, políticas bloqueando lo que tienen que bloquear — y eso solo se puede confirmar contra una base de datos real con RLS habilitado, no con un doble de prueba.
-* **Por qué elegí Vitest:** corre TypeScript directo sin configuración rara, es rápido, y la sintaxis (`describe`, `it`, `expect`) es casi idéntica a Jest, así que si alguien más lo lee no tiene curva de aprendizaje.
-* **Un ejemplo concreto de por qué valía la pena tener e2e:** hay una prueba en `messages.e2e.test.ts` que loguea como el usuario `admin@riwi.io` (que en el seed NO es miembro del canal "Desarrollo Cohorte 6") e intenta leer los mensajes de ese canal. Si algún día rompo por accidente la política RLS de `rw_messages_select`, o el `isMember()` que valido antes en el caso de uso, esta prueba se cae inmediatamente — es la única forma real de confirmar que la seguridad de datos funciona de punta a punta y no solo "en la teoría".
-
----
-
-## 12. Frontend: por qué Angular con Signals y Standalone (y una aclaración de versión)
-
-Para `apps/web` usé Angular en su forma más moderna: **componentes standalone** (nada de `NgModule`), **Signals** para el estado local, y `@angular/build:application` (el builder nuevo basado en esbuild/Vite).
-
-* **Por qué Angular y no otra cosa:** ya venía siendo el framework que pedía la prueba técnica, pero además tiene sentido para este proyecto puntual: trae Router, HttpClient, formularios e inyección de dependencias todo integrado, sin tener que salir a elegir/armar cada pieza por separado como tocaría con una librería más chica.
-* **Aclaración honesta de versión:** el enunciado pedía "la última versión estable". Al momento de armar el proyecto, la última estable de Angular (v22) exige Node ≥22.22.3, ≥24.15.0 o ≥26 — y el entorno donde armé y probé todo esto tiene Node 24.3.0, que queda justo por debajo de ese corte. En vez de generar algo que no podía ni compilar ni correr acá, usé **Angular 21.2** (la versión estable inmediatamente anterior, con soporte activo), que sí corre con Node ≥24.0.0 sin restricción de parche. Si tu máquina tiene Node 24.15+ o 26+, actualizar es un solo comando: `ng update @angular/core@22 @angular/cli@22`.
-* **Standalone en vez de NgModules:** cada componente declara sus propios `imports` (ver cualquier `*.ts` de `src/app`) en vez de depender de un módulo central. Para un proyecto de este tamaño, los NgModules solo agregarían un nivel más de indirección sin aportar nada — cada componente ya deja clarísimo de qué depende con solo mirar su decorador.
+* **`AppError` Hierarchy:** Base class `AppError` (`domain/errors/AppError.ts`) is inherited by specialized errors: `ValidationError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404), and `ConflictError` (409). Each error includes an HTTP status code and a machine-readable error `code`.
+* **Centralized `errorHandler.ts`:** Inspects caught errors. Known `AppError` instances return structured JSON payloads with their designated status codes. Unhandled native errors return a sanitized `500 - Something went wrong` response while logging full stack traces with the request `X-Correlation-ID`.
+* **`asyncHandler.ts` Wrapper:** Wraps asynchronous controller route handlers to forward unhandled promise rejections directly to Express error handling middleware.
 
 ---
 
-## 13. Cuándo usé Signals y cuándo RxJS (no elegí uno solo para todo)
+## 11. Testing Architecture: Mocks vs Real E2E
 
-Podría haber intentado hacer *todo* con uno de los dos, pero terminé usando cada uno para lo que mejor le queda:
+Testing is divided into two distinct scopes:
 
-* **Signals para el estado que vive en memoria:** `ChatStore` (los mensajes del canal activo, si está cargando, el cursor de paginación), `AuthService` (la sesión actual), `I18nService` (el idioma activo). Todo esto es "un valor que cambia con el tiempo y que la UI necesita leer reactivamente" — exactamente para lo que Signals están hechos, y sin necesitar `| async` en cada template ni preocuparme por desuscribirme en `ngOnDestroy`.
-* **RxJS para todo lo que es un flujo async con más de un evento en el tiempo:** las llamadas HTTP (`HttpClient` sigue devolviendo `Observable`), el interceptor de auth (necesita `catchError`, `switchMap`, `filter`, cosas que Signals no resuelven bien), y los mensajes que llegan por WebSocket (`SocketService.onNewMessage()` es un stream que nunca "termina", ideal para Observable).
-* **La regla práctica que seguí:** un servicio arma sus llamadas HTTP con RxJS, pero en el momento en que el dato "aterriza", lo guardo en un signal (`.subscribe(res => this.messages.set(...))`). Así el resto de la app (los componentes) solo lee signals — no tiene que saber si algo vino de un Observable, de un WebSocket o de otro lado.
-
----
-
-## 14. Cómo no perder la posición del scroll al cargar mensajes viejos (keyset del lado del frontend)
-
-El backend pagina por keyset (ver punto 3) — pero eso solo resuelve la mitad del problema. Del lado del navegador, si simplemente insertás mensajes viejos AL PRINCIPIO de la lista mientras la persona está leyendo, el navegador agranda el contenido por arriba y la pantalla "salta", perdiendo la referencia visual de lo que se estaba leyendo. La solución completa está en `ChatContainerComponent` (`loadOlderMessages()`):
-
-1. Antes de pedir la página vieja, guardo `scrollHeight` y `scrollTop` del contenedor tal como están en ese momento.
-2. Le pido a `ChatStore` la página anterior (`loadMoreMessages()`), que la pega al principio del array.
-3. Uso `afterNextRender()` — la forma correcta en Angular moderno de decir "corré esto recién cuando el DOM YA se actualizó de verdad", en vez de un `setTimeout` a ciegas cruzando los dedos.
-4. Ya con el DOM actualizado, mido cuánto creció el contenido (`scrollHeight` nuevo menos el viejo) y se lo sumo al `scrollTop` que tenía guardado.
-
-El resultado: la persona sigue viendo exactamente el mismo mensaje en la misma posición de la pantalla, como si los mensajes viejos ya hubieran estado ahí desde siempre.
+* **Unit Tests (`tests/unit`, `pnpm test`):** Test isolated use cases using mock repositories. They execute in memory without network or database dependencies.
+* **End-to-End Tests (`tests/e2e`, `pnpm test:e2e`):** Instantiates the full Express app via `supertest` against a real database instance to validate JWT verification, transaction context propagation, and database RLS enforcement.
+* **Vitest Runner:** Vitest executes TypeScript natively with fast performance and Jest-compatible assertion syntax.
+* **Security Validation:** E2E tests specifically verify that non-member access attempts (e.g. `admin@riwi.io` accessing private channels) are blocked by database RLS rules.
 
 ---
 
-## 15. Separación modular de la UI, estilo Fluent
+## 12. Frontend Framework: Angular Standalone & Signals
 
-Organicé `src/app` en carpetas por función, no por tipo de archivo:
+`apps/web` uses Angular with standalone components, Signals state management, and `@angular/build:application` (esbuild/Vite).
+
+* **Framework Selection:** Provides integrated routing, HTTP handling, form validation, and dependency injection out of the box.
+* **Angular Version Note:** Built with Angular 21.2 to ensure compatibility across Node.js 20+ and 24+ environments. Upgradable to v22 via `ng update @angular/core@22 @angular/cli@22`.
+* **Standalone Architecture:** Eliminates `NgModule` boilerplate, declaring explicit component dependencies within `@Component` decorators.
+
+---
+
+## 13. State Management: Signals & RxJS
+
+State management uses a hybrid strategy combining Signals and RxJS based on use case:
+
+* **Signals for Synchronous Reactive State:** `ChatStore` (active messages, loading states, pagination cursors), `AuthService` (current session), and `I18nService` (active locale) use Signals for simple UI bindings without subscription management overhead.
+* **RxJS for Asynchronous Data Streams:** Used for HTTP requests, authentication interceptors (`catchError`, `switchMap`), and WebSocket event streams (`SocketService.onNewMessage()`).
+* **Integration Pattern:** HTTP and WebSocket streams resolve data via RxJS and update Signals (`.subscribe(data => signal.set(data))`), keeping component templates cleanly bound to Signals.
+
+---
+
+## 14. Scroll Position Preservation in Keyset Pagination
+
+When loading historical messages, inserting items at the top of a scroll container can cause UI scroll jumping. `ChatContainerComponent` (`loadOlderMessages()`) handles scroll adjustments:
+
+1. Captures pre-fetch container `scrollHeight` and `scrollTop`.
+2. Triggers `ChatStore.loadMoreMessages()` to prepend historical items.
+3. Invokes `afterNextRender()` to execute post-DOM render logic.
+4. Calculates height delta (`newScrollHeight - oldScrollHeight`) and updates `scrollTop` accordingly.
+
+This retains visual scroll positioning seamlessly during pagination.
+
+---
+
+## 15. Modular UI Architecture
+
+`src/app` is organized by feature modules:
 
 ```
-core/         → servicios "de toda la app": auth, i18n, WebSocket (nada de esto es visual)
-features/     → una carpeta por funcionalidad (chat, copilot, profile, auth), cada una con sus propios components/services/models
-shared/ui/    → piezas visuales chicas y sin opinión de negocio (Avatar, EmptyState, MessageSkeleton, Toast) que cualquier feature puede usar
+core/         → Global services (auth, i18n, WebSocket)
+features/     → Feature domains (chat, copilot, profile, auth) containing local components/services
+shared/ui/    → Presentational components (Avatar, EmptyState, Skeleton, Toast)
 ```
 
-* **Por qué así y no todo en una carpeta `components/`:** porque así, para tocar todo lo relacionado al copiloto, solo entro a `features/copilot/` — no tengo que ir a buscar sus piezas desperdigadas entre las de chat o las de perfil.
-* **El estilo Fluent (Teams/Outlook) quedó centralizado en un solo lugar:** todos los colores, radios de borde y la tipografía viven como tokens de Tailwind v4 en `src/styles.css` (`--color-brand-500`, `--radius-fluent`, etc.), no repetidos como códigos de color sueltos en cada componente. Si mañana cambia la paleta de marca, se edita un archivo, no cuarenta.
-* **`shared/ui` nunca importa de `features/`:** las piezas compartidas no saben nada de mensajes ni de canales — reciben todo por `input()`. Eso es lo que las hace reutilizables de verdad, y evita que un cambio en el chat rompa por accidente el panel del copiloto.
+* **Fluent Design Tokens:** Design tokens (colors, border radii, typography) are defined in `src/styles.css` using CSS custom properties (`--color-brand-500`, `--radius-fluent`).
+* **Decoupled Presentational Components:** `shared/ui` components accept data via inputs without direct dependencies on feature services.
 
 ---
 
-## 16. Interceptor de auth con refresh automático (y por qué es una sola función, no una clase)
+## 16. Authentication Interceptor with Token Refresh
 
-`authInterceptor` es un interceptor **funcional** (`HttpInterceptorFn`), no una clase con `@Injectable`. Angular dejó ese estilo como el recomendado desde hace un tiempo porque es menos código para lo mismo — pero eso trae una particularidad: una función no tiene "propiedades de instancia" donde guardar estado. La solución fue declarar `isRefreshing` y `refreshedToken$` como variables a nivel de MÓDULO (fuera de la función), que cumplen exactamente ese rol porque el archivo se carga una sola vez en toda la vida de la app.
+`authInterceptor` is a functional interceptor (`HttpInterceptorFn`) managing silent token refresh:
 
-* **Por qué hace falta ese estado compartido:** si 5 llamadas HTTP fallan con 401 al mismo tiempo (el access token expiró y justo hay varias requests en vuelo), sin coordinación las 5 dispararían su propio refresh en paralelo. Eso no solo es ineficiente — **rompería la rotación de tokens del backend**, que solo permite un refresh token activo a la vez (ver punto 6). Con el flag `isRefreshing`, la primera request hace el refresh; las otras 4 esperan el resultado en `refreshedToken$` y reintentan con el token nuevo apenas llega.
-* **Qué pasa si el refresh también falla:** significa que el refresh token ya venció o fue revocado (por ejemplo, alguien inició sesión desde otro dispositivo). Ahí no hay nada que recuperar — se cierra la sesión local y se manda a la persona de vuelta a `/login`.
-
----
-
-## 17. Cero texto hardcodeado: ngx-translate en vez del i18n nativo de Angular
-
-El enunciado prohibía texto incrustado en los componentes, y había dos caminos: el i18n nativo de Angular (`@angular/localize`) o `ngx-translate`. Elegí **ngx-translate**.
-
-* **La razón principal:** el i18n nativo de Angular resuelve el idioma en **tiempo de build** — necesitarías compilar la app una vez por idioma y sevir bundles distintos según la URL o el dominio. Eso es genial para SEO multi-idioma, pero acá lo que se pide es un selector de idioma que cambie la UI **al toque, sin recargar la página** (ver el switch ES/EN en `ProfileCard`) — eso es exactamente lo que ngx-translate resuelve, cargando el diccionario correspondiente en tiempo de ejecución.
-* **`I18nService` es la única puerta de entrada:** ningún componente importa `TranslateService` directo ni decide un string en español/inglés por su cuenta. Todo el texto sale de `public/i18n/es.json` / `en.json` a través del pipe `translate`, y `I18nService` es quien decide (y persiste en `localStorage`) cuál de los dos diccionarios está activo.
-* **`provideAppInitializer` evita el parpadeo:** cargar un diccionario es una llamada HTTP, o sea que es asíncrona. Sin esperar a que termine antes de pintar la app, la persona vería por una fracción de segundo las claves crudas (`chat.empty.title`) en vez del texto real. `app.config.ts` espera ese primer `initialize()` antes de terminar de arrancar.
+* **Concurrency Management:** Uses module-scoped state (`isRefreshing`, `refreshedToken$`) to serialize concurrent 401 HTTP failures. The first failing request triggers token refresh; concurrent requests queue and retry upon new access token issuance.
+* **Session Termination:** If token refresh fails (expired or revoked refresh token), local session state is cleared and user is redirected to `/login`.
 
 ---
 
-## 18. Manejo de errores en el frontend: Toasts en vez de silencio (o alerts feos)
+## 17. Internationalization (i18n)
 
-Del lado del backend, cada error ya llega con un `code` y un `statusCode` consistentes (ver punto 10). Del lado del frontend, decidí no dejar esos errores morir en la consola ni usar `alert()` — hice un `ToastService` chiquito, basado en un signal con una cola de notificaciones, que cualquier servicio puede llamar (`toastService.error('chat.errors.sendFailed')`) sin acoplarse a ningún componente visual.
+Internationalization is powered by `ngx-translate`:
 
-* **Por qué una cola y no un solo mensaje:** si fallan dos cosas casi al mismo tiempo (por ejemplo, mandar un mensaje Y preguntarle al copiloto), las dos notificaciones tienen que poder convivir en pantalla en vez de que la segunda tape a la primera.
-* **Se autodestruyen solas a los 5 segundos** (`dismiss()` con `setTimeout`), pero también se pueden cerrar a mano — no hay que forzar a nadie a esperar a que desaparezcan.
-* **Los mensajes de error de un mensaje fallido no solo van a un toast:** el mensaje en sí se queda visible en el chat marcado como `failed`, con un botón de "Reintentar" al lado (ver `ChatContainerComponent`). El toast avisa que algo pasó; el estado del mensaje deja claro *cuál* mensaje fue y da una forma inmediata de arreglarlo.
+* **Dynamic Runtime Switching:** Enables instant language switching without page reloads or multi-bundle deployment requirements.
+* **`I18nService` Abstraction:** Encapsulates translation loading, locale switching, and `localStorage` persistence. UI components access translations via the `translate` pipe.
+* **App Initializer:** `provideAppInitializer` waits for initial translation dictionary load before app rendering, preventing un-translated key flicker.
+
+---
+
+## 18. Frontend Error Handling
+
+API errors are communicated visually via `ToastService`:
+
+* **Notification Queue:** Uses a Signal-backed notification queue to display multiple concurrent toast messages without overwriting active alerts.
+* **Auto-Dismissal:** Toast alerts auto-dismiss after 5 seconds or allow manual dismissal.
+* **Message Retry:** Failed message send attempts update local message state to `failed` with an inline retry action in addition to toast notification.

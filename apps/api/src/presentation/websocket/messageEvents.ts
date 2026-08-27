@@ -2,13 +2,13 @@ import { EventEmitter } from "node:events";
 import { Message } from "../../domain/entities/Message";
 
 /**
- * Bus de eventos chiquito, en el mismo proceso, que desacopla la capa HTTP
- * de la capa de WebSockets: MessageController no necesita saber que
- * Socket.io existe, solo emite "pasó esto con un mensaje". socketServer.ts es
- * el único archivo que escucha y lo convierte en un `io.to(room).emit(...)`.
- * Alcanza para un despliegue de un solo proceso; un setup con varias
- * instancias cambiaría esto por un adaptador de pub/sub con Redis sin tocar
- * ninguno de los dos lados.
+ * Small in-process event bus that decouples the HTTP layer from the
+ * WebSocket layer: MessageController doesn't need to know Socket.io
+ * exists, it just emits "something happened to a message". socketServer.ts
+ * is the only file that listens and turns that into a
+ * `io.to(room).emit(...)`. Good enough for a single-process deployment; a
+ * multi-instance setup would swap this for a Redis pub/sub adapter without
+ * touching either side.
  */
 export const messageEvents = new EventEmitter();
 
@@ -25,12 +25,12 @@ export function emitMessageCreated(message: Message): void {
   messageEvents.emit(MESSAGE_CREATED, message);
 }
 
-/** Mismo evento tanto para "edité el contenido" como para futuros cambios de estado del mensaje. */
+/** Same event shape for "I edited the content" as for any future message state change. */
 export function emitMessageUpdated(message: Message): void {
   messageEvents.emit(MESSAGE_UPDATED, message);
 }
 
-/** Solo manda el id + canal — el mensaje en sí no "existe más" para quien está mirando, no hace falta su contenido. */
+/** Only sends the id + channel — the message itself no longer "exists" for whoever is watching, its content doesn't matter anymore. */
 export function emitMessageDeleted(payload: MessageDeletedPayload): void {
   messageEvents.emit(MESSAGE_DELETED, payload);
 }

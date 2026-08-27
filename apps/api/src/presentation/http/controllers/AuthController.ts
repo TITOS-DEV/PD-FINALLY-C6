@@ -3,10 +3,10 @@ import { withSystemContext } from "../../../infrastructure/db/withRLSContext";
 import { buildSystemContainer } from "../../container";
 
 /**
- * Cada handler acá corre con el contexto de SISTEMA, nunca con
- * withRLSContext: todavía no hay usuario logueado (registro/login), o la
- * operación (refresh/logout) es una búsqueda confiable, propia del backend,
- * por hash de token, que no tiene nada que ver con los permisos por fila de quien llama.
+ * Every handler here runs with the SYSTEM db context, never withRLSContext:
+ * there's no logged-in user yet (register/login), or the operation
+ * (refresh/logout) is a trusted, backend-only lookup by token hash that has
+ * nothing to do with the caller's row-level permissions.
  */
 export const AuthController = {
   async register(req: Request, res: Response): Promise<void> {

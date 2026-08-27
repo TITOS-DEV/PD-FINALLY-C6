@@ -1,16 +1,16 @@
 /**
- * Una sesión de refresh token. Refleja `rw_refresh_tokens`.
+ * A refresh token session. Mirrors `rw_refresh_tokens`.
  *
- * Nunca guardamos el refresh token en crudo, solo un hash (`tokenHash`) —
- * la misma idea que con las contraseñas: si la BD se filtra algún día, los
- * tokens ahí dentro no sirven para nada sin el valor original que tiene el cliente.
+ * We never store the raw refresh token, only a hash of it (`tokenHash`) —
+ * same idea as passwords: if the DB ever leaks, the tokens inside it are
+ * useless without the original value the client is holding.
  */
 export interface RefreshToken {
   id: string;
   userId: string;
   tokenHash: string;
   expiresAt: Date;
-  /** Null mientras está activo. Se marca apenas se rota, reemplaza o se cierra sesión. */
+  /** Null while active. Set the moment it's rotated, replaced or logged out. */
   revokedAt: Date | null;
   createdAt: Date;
 }

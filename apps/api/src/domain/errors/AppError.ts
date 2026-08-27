@@ -1,20 +1,20 @@
 /**
- * Clase base para cada error que la aplicación lanza a propósito.
+ * Base class for every error the application throws on purpose.
  *
- * La idea es simple: los casos de uso y repositorios nunca tocan Express ni
- * escriben `res.status(...)` — simplemente hacen `throw` de uno de estos.
- * Un único middleware en el borde (ver errorHandler.ts) sabe cómo convertir
- * cualquier AppError en la respuesta HTTP correcta. Cualquier cosa que NO
- * sea un AppError se trata como un bug y se responde con un 500 genérico,
- * sin filtrarle nunca detalles internos al cliente.
+ * The idea is simple: use cases and repositories never touch Express or
+ * write `res.status(...)` — they just throw one of these. A single
+ * middleware at the edge (see errorHandler.ts) knows how to turn any
+ * AppError into the right HTTP response. Anything that is NOT an AppError
+ * is treated as a bug and answered with a generic 500, never leaking
+ * internal details to the client.
  */
 export class AppError extends Error {
   constructor(
     message: string,
     public readonly statusCode: number,
-    /** Código legible por máquina para que el frontend pueda ramificar (ej. "INVALID_CREDENTIALS"). */
+    /** Machine-readable code the frontend can branch on (e.g. "INVALID_CREDENTIALS"). */
     public readonly code: string,
-    /** Contexto extra, solo se loguea del lado del servidor, nunca se le manda al cliente. */
+    /** Extra context, only ever logged server-side, never sent to the client. */
     public readonly details?: unknown
   ) {
     super(message);
@@ -23,11 +23,6 @@ export class AppError extends Error {
   }
 }
 
-// Nota: los mensajes por defecto se dejan en inglés a propósito — son texto
-// que puede terminar mostrándose en un JSON de respuesta al cliente (a la
-// API/frontend le toca traducirlo si hace falta, ver el i18n del frontend).
-// Los COMENTARIOS del código sí están en español; el texto de cara al
-// cliente sigue la decisión de "código en inglés" del proyecto.
 export class ValidationError extends AppError {
   constructor(message = "The request payload is invalid", details?: unknown) {
     super(message, 400, "VALIDATION_ERROR", details);

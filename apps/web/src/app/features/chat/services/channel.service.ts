@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { Channel } from '../../../core/models/channel.model';
 
-/** Wrapper HTTP fino sobre /api/channels — sin lógica, solo las llamadas crudas. */
+/** HTTP wrapper service for `/api/channels`. */
 @Injectable({ providedIn: 'root' })
 export class ChannelService {
   private readonly http = inject(HttpClient);

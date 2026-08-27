@@ -9,11 +9,11 @@ export interface RefreshAccessTokenOutput {
 }
 
 /**
- * Rotación de refresh token: cada vez que se usa un refresh token, se
- * revoca y se reemplaza por uno nuevo. Si un token robado/viejo se llega a
- * reusar después de que el cliente legítimo ya rotó, acá se lo va a
- * encontrar ya revocado y todo el flujo se rechaza — es el patrón estándar
- * de "detección de reuso" para refresh tokens.
+ * Refresh-token rotation: every time a refresh token is used, it's revoked
+ * and replaced by a brand new one. If a stolen/old token ever gets replayed
+ * after the legitimate client has already rotated it, it'll be found
+ * already revoked here and the whole flow gets rejected — that's the
+ * standard "reuse detection" refresh-token pattern.
  */
 export class RefreshAccessToken {
   constructor(
@@ -33,12 +33,12 @@ export class RefreshAccessToken {
     const user = await this.userRepository.findById(existing.userId);
     if (!user) throw new UnauthorizedError("User no longer exists");
 
-    // `replaceActiveToken` ya revoca cualquier token activo del usuario
-    // antes de insertar el nuevo — como `existing` es justo uno de esos
-    // activos (ya lo validamos arriba), no hace falta revocarlo por
-    // separado acá. Y, otra vez, la carrera entre dos refresh casi
-    // simultáneos para el mismo usuario queda resuelta del lado del
-    // repositorio (ver SupabaseRefreshTokenRepository), no acá.
+    // `replaceActiveToken` already revokes any active token for the user
+    // before inserting the new one — since `existing` is one of those
+    // active tokens (we already validated `!existing.revokedAt` above),
+    // there's no need to revoke it separately here. And again, the race
+    // between two near-simultaneous refreshes for the same user is handled
+    // on the repository side (see SupabaseRefreshTokenRepository), not here.
     const newRawRefreshToken = this.jwtService.generateRefreshToken();
     await this.refreshTokenRepository.replaceActiveToken({
       userId: user.id,

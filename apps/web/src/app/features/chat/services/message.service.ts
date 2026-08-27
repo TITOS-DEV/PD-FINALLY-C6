@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { GetChannelMessagesResponse, Message, MessageCursor } from '../../../core/models/message.model';
 
-/** Wrapper HTTP fino sobre los endpoints de mensajes — el estado/la lógica viven en ChatStore. */
+/** HTTP wrapper service for message endpoints. Logic and state are managed by `ChatStore`. */
 @Injectable({ providedIn: 'root' })
 export class MessageService {
   private readonly http = inject(HttpClient);

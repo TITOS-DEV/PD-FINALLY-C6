@@ -2,24 +2,23 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-// Soportamos correr la API de dos formas: directo desde `apps/api` (el
-// `pnpm dev` local) o desde la raíz del monorepo dentro de Docker
-// (`WORKDIR /app`, `CMD node apps/api/dist/server.js`). En los dos casos
-// terminamos necesitando el mismo `.env` único en la raíz del repo, así que
-// simplemente probamos las dos ubicaciones. `dotenv` nunca sobreescribe una
-// variable que ya está seteada, así que cargarlo dos veces no hace daño.
-dotenv.config(); // CWD/.env (cubre el caso de Docker, donde CWD === raíz del repo)
-dotenv.config({ path: path.resolve(__dirname, "../../../../../.env") }); // raíz del repo, relativo a este archivo
+// We support running the API two ways: straight from `apps/api` (local
+// `pnpm dev`) or from the monorepo root inside Docker (`WORKDIR /app`,
+// `CMD node apps/api/dist/server.js`). Both cases end up needing the same
+// single `.env` file at the repo root, so we just try both locations.
+// `dotenv` never overwrites a variable that's already set, so loading it
+// twice is harmless.
+dotenv.config(); // CWD/.env (covers the Docker case, CWD === repo root)
+dotenv.config({ path: path.resolve(__dirname, "../../../../../.env") }); // repo root, relative to this file
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().default(4000),
 
-  // Connection string directo de Postgres (el "Connection string" de
-  // Supabase, en Project Settings > Database). A propósito NO es la URL de
-  // supabase-js / REST: necesitamos una conexión `pg` cruda para poder abrir
-  // una transacción y setear nosotros mismos los claims del JWT — ver
-  // withRLSContext.ts para el porqué.
+  // Direct Postgres connection string (Supabase "Connection string" from
+  // Project Settings > Database). Deliberately NOT the supabase-js / REST
+  // URL: we need a raw `pg` connection so we can open a transaction and set
+  // the JWT claims ourselves — see withRLSContext.ts for why.
   DATABASE_URL: z.string().url(),
 
   JWT_ACCESS_SECRET: z.string().min(16),
@@ -41,8 +40,8 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  // Falla rápido y fuerte: un servidor mal configurado es peor que uno que
-  // se niega a arrancar. `flatten()` da un resumen legible campo por campo.
+  // Fail fast and loud: a misconfigured server is worse than one that
+  // refuses to boot. `flatten()` gives a readable field-by-field summary.
   console.error("❌ Invalid environment configuration:", parsed.error.flatten().fieldErrors);
   process.exit(1);
 }

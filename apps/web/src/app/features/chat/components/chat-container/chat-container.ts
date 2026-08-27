@@ -10,35 +10,20 @@ import { MessageComposer } from '../message-composer/message-composer';
 import { Avatar } from '../../../../shared/ui/avatar/avatar';
 import { Message } from '../../../../core/models/message.model';
 
-/** A qué distancia del tope (en píxeles) empezamos a pedir la página anterior. */
+/** Threshold in pixels from top of scroll container to trigger loading previous page. */
 const LOAD_MORE_THRESHOLD_PX = 80;
-/** Dos mensajes seguidos del mismo autor separados por más de esto ya no se agrupan visualmente. */
+/** Maximum duration threshold in milliseconds between consecutive messages by same author to group headers. */
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
-/** Un mensaje más el dato de si le toca mostrar el encabezado (avatar + nombre + hora) o no. */
+/** Message row view model with calculated header visibility boolean flag. */
 interface MessageRow {
   message: Message;
   showHeader: boolean;
 }
 
 /**
- * Zona central de mensajería: header del canal, historial con scroll y el
- * composer abajo. Es el componente más "con estado visual" de toda la app
- * porque tiene que cubrir las 4 situaciones que pide el enunciado:
- * cargando (skeleton), vacío, error de conexión, y la lista normal con
- * cada mensaje mostrando su estado (pending/sent/failed).
- *
- * El estilo visual es tipo Slack/Discord: sin burbujas, sin alinear los
- * mensajes propios a la derecha — todos los mensajes se ven igual de
- * "protagonistas" en una lista plana, y los mensajes seguidos de la misma
- * persona se agrupan bajo un solo encabezado (avatar + nombre + hora) en
- * vez de repetirlo en cada línea, que es justo lo que hace que esos chats
- * se sientan menos "saturados" que el estilo de burbujas.
- *
- * No tiene NINGÚN estado propio de datos — todo (mensajes, loading,
- * errores, si hay más historial) sale de `ChatStore`. Lo único que este
- * componente posee es el manejo del scroll y el agrupado visual, porque
- * son detalles de presentación, no de datos.
+ * Main chat container component: renders active channel header, scrollable message history,
+ * and bottom message composer. Manages scroll preservation and visual grouping logic.
  */
 @Component({
   selector: 'app-chat-container',
@@ -53,21 +38,17 @@ export class ChatContainer implements AfterViewChecked {
 
   private readonly scrollContainerRef = viewChild.required<ElementRef<HTMLDivElement>>('scrollContainer');
 
-  // ---- Edición en línea ----
+  // Inline editing state
   protected readonly editingMessageId = signal<string | null>(null);
   protected readonly editingDraft = signal('');
 
-  // ---- Confirmación antes de borrar (nada de un `confirm()` nativo del navegador) ----
+  // Deletion confirmation state
   protected readonly confirmingDeleteId = signal<string | null>(null);
 
   /**
-   * Convierte el array plano de ChatStore en filas con `showHeader`
-   * calculado: arranca un grupo nuevo cuando cambia el autor, cuando pasan
-   * más de 5 minutos entre un mensaje y el siguiente, o cuando alguno de
-   * los dos no está en estado 'sent' — un mensaje pendiente o fallido
-   * siempre muestra su propio encabezado, para que el estado de "no se
-   * pudo enviar" con su botón de reintentar nunca quede escondido dentro
-   * de un grupo ajeno.
+   * Computes formatted message rows with header visibility rules:
+   * A new header is created when the author changes, when > 5 minutes elapse,
+   * or when either message status is not 'sent'.
    */
   protected readonly rows = computed<MessageRow[]>(() => {
     const messages = this.chatStore.messages();
@@ -82,14 +63,6 @@ export class ChatContainer implements AfterViewChecked {
     });
   });
 
-  /**
-   * Si la persona está mirando el final de la conversación, un mensaje
-   * nuevo (propio o de otro) debe empujar la vista hacia abajo sola, como
-   * en cualquier chat. Pero si se fue para arriba a leer historial viejo,
-   * lo último que queremos es "secuestrarle" el scroll de vuelta al fondo
-   * cada vez que llega un mensaje — por eso el auto-scroll solo se activa
-   * cuando ya estaba cerca del fondo.
-   */
   private isNearBottom = true;
 
   ngAfterViewChecked(): void {
@@ -111,28 +84,11 @@ export class ChatContainer implements AfterViewChecked {
   }
 
   /**
-   * Acá está la estrategia completa para no perder la posición del scroll
-   * al cargar mensajes más viejos (esto es justo lo que pide el enunciado
-   * y lo que documento en DECISIONS.md):
-   *
-   *   1. Antes de pedir la página vieja, medimos `scrollHeight` y
-   *      `scrollTop` actuales del contenedor.
-   *   2. Le pedimos a ChatStore la página anterior. Como los mensajes
-   *      nuevos se INSERTAN AL PRINCIPIO del array, el navegador va a
-   *      agrandar el contenido por ARRIBA — sin corregir nada, eso hace
-   *      que la vista "salte" y la persona pierda el mensaje que estaba
-   *      leyendo.
-   *   3. Angular todavía no terminó de pintar el DOM con los mensajes
-   *      nuevos en el momento en que `loadMoreMessages()` resuelve (el
-   *      signal ya cambió, pero el navegador recién va a hacer el reflow
-   *      en el próximo ciclo de render). Por eso usamos `afterNextRender`:
-   *      es la forma correcta en Angular moderno de decir "ejecutá esto
-   *      recién cuando el DOM ya se actualizó de verdad".
-   *   4. Con el DOM ya actualizado, medimos cuánto CRECIÓ el contenido
-   *      (`nuevo scrollHeight - viejo scrollHeight`) y le sumamos esa
-   *      diferencia al `scrollTop` que teníamos guardado. El resultado:
-   *      la persona sigue viendo exactamente el mismo mensaje en la misma
-   *      posición de la pantalla, como si nada hubiera cambiado arriba.
+   * Scroll preservation strategy when loading historical message pages:
+   * 1. Captures pre-fetch `scrollHeight` and `scrollTop`.
+   * 2. Triggers `chatStore.loadMoreMessages()` to prepend historical items.
+   * 3. Uses `afterNextRender` to wait for DOM updates post-render.
+   * 4. Adjusts `scrollTop` by height delta (`newScrollHeight - previousScrollHeight`).
    */
   private async loadOlderMessages(): Promise<void> {
     const el = this.scrollContainerRef().nativeElement;
@@ -159,14 +115,10 @@ export class ChatContainer implements AfterViewChecked {
     this.isNearBottom = true;
   }
 
-  /** El composer siempre está visible aunque la lista esté scrolleada hacia
-   *  arriba — si la persona manda un mensaje desde ahí, igual queremos que
-   *  la vista baje a mostrárselo. */
   protected onOwnMessageSent(): void {
     this.isNearBottom = true;
   }
 
-  // ---- Permisos: mismo criterio que ya valida el backend (EditMessage/DeleteMessage) ----
   protected canEdit(message: Message): boolean {
     return message.userId === this.authService.currentUser()?.id;
   }
@@ -176,12 +128,10 @@ export class ChatContainer implements AfterViewChecked {
     return message.userId === user?.id || user?.role === 'admin';
   }
 
-  /** `updatedAt` solo se mueve del valor de `createdAt` cuando el mensaje pasó por un PATCH. */
   protected isEdited(message: Message): boolean {
     return message.updatedAt !== message.createdAt;
   }
 
-  // ---- Edición en línea ----
   protected startEdit(message: Message): void {
     this.confirmingDeleteId.set(null);
     this.editingMessageId.set(message.id);
@@ -209,7 +159,6 @@ export class ChatContainer implements AfterViewChecked {
     }
   }
 
-  // ---- Confirmar antes de borrar ----
   protected requestDelete(messageId: string): void {
     this.editingMessageId.set(null);
     this.confirmingDeleteId.set(messageId);

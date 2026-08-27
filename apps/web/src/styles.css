@@ -1,19 +1,15 @@
-/* Estilos globales de la app.
+/* Global application styles.
  *
- * Estética tipo Slack/Discord: una barra de navegación oscura (canales +
- * perfil) contra un área de contenido clara (el chat en sí, el copiloto).
- * Ese contraste oscuro/claro es lo que le da a la app una identidad propia
- * en vez de sentirse "un formulario más" — y de paso es donde vive la
- * mayor parte del azul de marca, sin que se vuelva un empapelado de color
- * en las zonas donde la gente en realidad tiene que leer texto largo rato
- * (los mensajes).
+ * Slack/Discord aesthetics: dark navigation sidebar (channels + profile)
+ * paired with a light content area (chat view, copilot).
+ * This dark/light contrast gives the application a distinct identity,
+ * establishing a clean environment for long-form reading in the messaging area.
  */
 @import "tailwindcss";
 
 @theme {
-  /* Azul de marca. Escala completa para poder usarlo tanto en superficies
-     oscuras (sidebar) como en acentos sobre fondo claro (botones, enlaces,
-     el borde del canal activo). */
+  /* Brand blue full scale palette for dark surfaces (sidebar) and light background accents
+     (buttons, links, active channel border). */
   --color-brand-50: #eef5ff;
   --color-brand-100: #dbe9fe;
   --color-brand-200: #bcd7fd;
@@ -25,18 +21,16 @@
   --color-brand-800: #0d3872;
   --color-brand-900: #0a2a56;
 
-  /* Grises neutros para el área de CONTENIDO clara (chat, copiloto, login). */
-  --color-ink-1: #1a1f27; /* texto principal */
-  --color-ink-2: #4b5566; /* texto secundario */
-  --color-ink-3: #8892a0; /* texto terciario / placeholders */
+  /* Neutral grays for light content surfaces (chat, copilot, login). */
+  --color-ink-1: #1a1f27; /* Primary text */
+  --color-ink-2: #4b5566; /* Secondary text */
+  --color-ink-3: #8892a0; /* Tertiary text / placeholders */
   --color-surface: #ffffff;
   --color-surface-muted: #f7f9fc;
   --color-border: #e3e8ef;
 
-  /* Paleta oscura, solo para la barra de navegación (sidebar de canales +
-     perfil, la barra superior en mobile, y el panel de marca del login).
-     Es un azul-marino oscuro, no negro puro ni gris — sigue siendo parte
-     de la misma familia de color que --color-brand-*. */
+  /* Dark palette for navigation surfaces (channels sidebar, profile, mobile top bar, login brand panel).
+     Deep navy palette within the brand color spectrum. */
   --color-nav-bg: #0f1b2e;
   --color-nav-bg-elevated: #16233a;
   --color-nav-hover: #1c2b45;
@@ -45,7 +39,7 @@
   --color-nav-text: #d3dbe6;
   --color-nav-text-muted: #7c8ba1;
 
-  /* Estados de los mensajes: pendiente, enviado, fallido. */
+  /* Message state colors: pending, sent, failed. */
   --color-status-pending: #b98900;
   --color-status-sent: #107c41;
   --color-status-failed: #c4314b;
@@ -58,7 +52,7 @@
   --radius-fluent-lg: 14px;
 }
 
-/* Reset chiquito, solo lo esencial — Tailwind ya trae su propio preflight. */
+/* Minimal baseline CSS reset. */
 html,
 body {
   height: 100%;
@@ -72,12 +66,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar delgada y a tono con el color de fondo de cada zona (clara u
- * oscura) en vez de la barra gris genérica del sistema operativo. Firefox
- * solo entiende `scrollbar-color` (dos colores planos); Chrome/Edge/Safari
- * entienden los pseudo-elementos `::-webkit-scrollbar-*`, que es lo que
- * realmente permite un thumb angosto y redondeado. Ponemos las dos reglas
- * para que se vea bien en cualquier navegador.
+/* Custom scrollbars tuned for dark/light surface zones.
+ * Firefox uses `scrollbar-color`; Chrome/Edge/Safari support `::-webkit-scrollbar-*`.
  */
 * {
   scrollbar-width: thin;
@@ -104,8 +94,7 @@ body {
   background-color: var(--color-ink-3);
 }
 
-/* Dentro de zonas oscuras (sidebar) la barra clara de arriba desaparecería
- * contra el fondo oscuro — acá la reemplazamos por una versión clara semitransparente. */
+/* Scrollbar overrides for dark navigation sidebar */
 .scrollbar-on-dark {
   scrollbar-color: var(--color-nav-hover) transparent;
 }
@@ -118,10 +107,7 @@ body {
   background-color: var(--color-nav-text-muted);
 }
 
-/* Utilidades de gradiente en azul de marca — se usan con cuidado, solo en
- * el panel de bienvenida del login y algún botón puntual, no en toda la
- * navegación (que ahora es un azul-marino sólido, más en línea con
- * Slack/Discord que con un degradado tipo SaaS). */
+/* Brand blue gradient utility classes for login welcome panel and highlights */
 .bg-gradient-brand {
   background-image: linear-gradient(160deg, var(--color-brand-600), var(--color-nav-bg));
 }

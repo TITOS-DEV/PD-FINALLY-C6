@@ -31,8 +31,8 @@ export class SupabaseChannelRepository implements IChannelRepository {
   }
 
   async listForUser(userId: string): Promise<Channel[]> {
-    // Join de membresía explícito encima del RLS: aunque una política se
-    // relaje por error algún día, esta consulta igual solo pide lo que necesita.
+    // Explicit membership join on top of RLS: even if a policy is ever
+    // relaxed by mistake, this query still only asks for what it needs.
     const { rows } = await this.db.query<ChannelRow>(
       `SELECT c.*
        FROM rw_channels c

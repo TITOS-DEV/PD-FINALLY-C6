@@ -8,11 +8,9 @@ import { Avatar } from '../../../../shared/ui/avatar/avatar';
 import { ProfileModal } from '../profile-modal/profile-modal';
 
 /**
- * Tarjeta con los datos del usuario autenticado — nombre, email y rol,
- * todo sacado del objeto `user` que devolvió el login (que a su vez viene
- * de lo que codifica el JWT del backend: `sub` y `role`, más el resto del
- * perfil desde `rw_users`). También vive acá el selector de idioma y el logout,
- * por ser la zona más lógica de "configuración de la cuenta".
+ * Sidebar authenticated user card component — displays user name, email, and role
+ * extracted from JWT claims (`sub`, `role`) and user profile data (`rw_users`).
+ * Houses language selector control and session logout action.
  */
 @Component({
   selector: 'app-profile-card',

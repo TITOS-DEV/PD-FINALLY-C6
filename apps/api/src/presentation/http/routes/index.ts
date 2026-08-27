@@ -8,6 +8,6 @@ export const apiRouter = Router();
 
 apiRouter.use("/auth", authRoutes);
 apiRouter.use("/channels", channelsRoutes);
-// messagesRoutes es dueña tanto de /channels/:channelId/messages como de /messages/read-receipts
+// messagesRoutes owns both /channels/:channelId/messages and /messages/read-receipts
 apiRouter.use("/", messagesRoutes);
 apiRouter.use("/copilot", copilotRoutes);

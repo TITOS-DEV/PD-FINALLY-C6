@@ -7,18 +7,17 @@ export interface IndexMessageEmbeddingInput {
 }
 
 /**
- * Convierte un mensaje recién enviado en un vector y lo guarda, para que el
- * copiloto lo pueda encontrar después. Se llama justo después de que
- * SendMessage tiene éxito (ver MessageController), conectado al contexto
- * de sistema de la BD porque `rw_message_embeddings_insert` es `TO
- * service_role` — un usuario autenticado normal nunca debería escribir
- * embeddings directamente.
+ * Turns a freshly-sent message into a vector and stores it, so the copilot
+ * can find it later. Called right after SendMessage succeeds (see
+ * MessageController), wired to the SYSTEM db context because
+ * `rw_message_embeddings_insert` is `TO service_role` — a regular
+ * authenticated user is never meant to write embeddings directly.
  *
- * A propósito NO puede tumbar toda la request si falla: si el proveedor de
- * embeddings está caído, el mensaje en sí ya se guardó bien — el copiloto
- * simplemente no va a encontrar ese mensaje puntual hasta que se reintente
- * el indexado. El controller atrapa y loguea los errores de este caso de
- * uso en vez de dejar que se propaguen.
+ * Deliberately NOT allowed to fail the whole request: if the embedding
+ * provider is down, the message itself was already saved successfully —
+ * the copilot just won't find this particular message until indexing is
+ * retried. The controller catches and logs errors from this use case
+ * instead of letting them bubble up.
  */
 export class IndexMessageEmbedding {
   constructor(

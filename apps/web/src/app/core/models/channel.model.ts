@@ -1,4 +1,4 @@
-/** Espejo de la tabla `rw_channels` tal como la sirve el backend. */
+/** Interface matching backend `rw_channels` table schema. */
 export interface Channel {
   id: string;
   name: string;

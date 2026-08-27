@@ -5,7 +5,7 @@
 
   <div class="scrollbar-on-dark flex-1 overflow-y-auto px-2 pb-2">
     @if (chatStore.channelsLoading()) {
-      <!-- Skeleton simple: 4 barras pulsando, mientras llega la lista real. -->
+      <!-- Simple skeleton: 4 pulsing bars during initial channel fetch -->
       <div class="flex flex-col gap-2 px-2">
         @for (row of [0, 1, 2, 3]; track row) {
           <div class="h-8 animate-pulse rounded-fluent bg-nav-hover"></div>

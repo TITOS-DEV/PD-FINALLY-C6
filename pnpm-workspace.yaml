@@ -17,4 +17,4 @@ allowBuilds:
   '@parcel/watcher': true
   lmdb: true
   msgpackr-extract: true
-  '@scarf/scarf': false # solo manda telemetría de instalación, no hace falta correrlo
+  '@scarf/scarf': false # only sends installation telemetry, no need to run

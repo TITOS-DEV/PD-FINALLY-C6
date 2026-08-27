@@ -41,19 +41,19 @@ export class SupabaseRefreshTokenRepository implements IRefreshTokenRepository {
   }
 
   /**
-   * `login` y `refresh` corren dentro de UNA sola transacción por request
-   * (ver withSystemContext). Eso significa que si el INSERT de acá abajo
-   * choca contra `idx_rw_active_refresh_token_unique` (porque otra request
-   * para el MISMO usuario ganó la carrera y ya insertó su propio token),
-   * Postgres deja la transacción entera "envenenada": cualquier comando
-   * posterior, incluido un simple reintento, sale rechazado con "current
-   * transaction is aborted" hasta que haya un ROLLBACK.
+   * `login` and `refresh` each run inside ONE transaction per request (see
+   * withSystemContext). That means if the INSERT below trips
+   * `idx_rw_active_refresh_token_unique` (because another request for the
+   * SAME user won the race and already inserted its own token), Postgres
+   * leaves the WHOLE transaction "poisoned": any later command, including
+   * a simple retry, gets rejected with "current transaction is aborted"
+   * until there's a ROLLBACK.
    *
-   * La salida es un SAVEPOINT: es un punto de restauración DENTRO de la
-   * misma transacción. Si el INSERT falla, hacemos `ROLLBACK TO SAVEPOINT`
-   * (que limpia SOLO ese error, no toda la transacción) y ahí sí podemos
-   * reintentar — revocando de nuevo (esta vez sí vamos a encontrar y
-   * limpiar la fila que insertó la otra request) e insertando la nuestra.
+   * The way out is a SAVEPOINT: it's a restore point INSIDE the same
+   * transaction. If the INSERT fails, we `ROLLBACK TO SAVEPOINT` (which
+   * only cleans up that one error, not the whole transaction), and from
+   * there we can retry — revoking again (this time we'll actually find
+   * and clear the row the other request inserted) and inserting ours.
    */
   async replaceActiveToken(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<RefreshToken> {
     await this.revokeAllActiveFor(input.userId);

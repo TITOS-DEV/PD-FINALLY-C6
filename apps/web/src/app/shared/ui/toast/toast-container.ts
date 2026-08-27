@@ -3,9 +3,9 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { ToastService } from './toast.service';
 
 /**
- * Se monta una sola vez en el shell raíz de la app (ver app.html) y dibuja
- * lo que haya en `ToastService.toasts()`. Fijo abajo a la derecha, apilado,
- * cada uno se puede cerrar a mano o desaparece solo a los 5 segundos.
+ * Toast container mounted once in root application shell (app.html).
+ * Subscribes to `ToastService.toasts()`, rendering stacked notifications
+ * fixed to the bottom right with auto-dismiss (5s) and manual dismiss handlers.
  */
 @Component({
   selector: 'app-toast-container',

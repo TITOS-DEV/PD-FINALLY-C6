@@ -1,5 +1,5 @@
 -- ============================================
--- 1. HABILITAR RLS EN TODAS LAS TABLAS
+-- 1. ENABLE RLS ON ALL TABLES
 -- ============================================
 ALTER TABLE
     rw_users ENABLE ROW LEVEL SECURITY;
@@ -23,7 +23,7 @@ ALTER TABLE
     rw_refresh_tokens ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
--- 2. FUNCIÓN AUXILIAR DE SEGURIDAD (ADMIN)
+-- 2. SECURITY HELPER FUNCTION (ADMIN)
 -- ============================================
 CREATE
 OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN AS $$
@@ -43,18 +43,16 @@ SET
     search_path = public;
 
 -- ============================================
--- 2.1 FUNCIÓN AUXILIAR: ¿SOY MIEMBRO DE ESTE CANAL?
+-- 2.1 HELPER FUNCTION: AM I A MEMBER OF THIS CHANNEL?
 -- ============================================
--- Existe por la misma razón que is_admin(): la política
--- "rw_channel_members_select" necesita saber si el usuario pertenece a un
--- canal consultando la propia tabla rw_channel_members. Si esa consulta se
--- escribe como una subconsulta directa contra rw_channel_members dentro de
--- su propia política, Postgres tiene que volver a aplicar esa misma
--- política para evaluar la subconsulta, que a su vez la vuelve a evaluar...
--- y termina en "infinite recursion detected in policy for relation
--- rw_channel_members". SECURITY DEFINER es la salida: la función corre con
--- los privilegios de quien la creó, así que la consulta interna a
--- rw_channel_members se salta el RLS por completo, sin ciclos.
+-- Exists for the same reason as is_admin(): the policy
+-- "rw_channel_members_select" needs to check if the user belongs to a
+-- channel by querying the rw_channel_members table itself. If that query is
+-- written as a direct subquery against rw_channel_members within its own policy,
+-- Postgres has to re-evaluate that same policy to evaluate the subquery,
+-- resulting in "infinite recursion detected in policy for relation rw_channel_members".
+-- SECURITY DEFINER solves this: the function runs with the privileges of its creator,
+-- allowing the internal query on rw_channel_members to bypass RLS without cycles.
 CREATE
 OR REPLACE FUNCTION public.is_channel_member(p_channel_id UUID) RETURNS BOOLEAN AS $$
 SELECT
@@ -73,17 +71,17 @@ SET
     search_path = public;
 
 -- ============================================
--- 3. POLÍTICAS RLS POR TABLA
+-- 3. RLS POLICIES PER TABLE
 -- ============================================
 -----------------------------------------------
--- TABLA: rw_users
+-- TABLE: rw_users
 -----------------------------------------------
--- Ver usuarios: Cualquier usuario autenticado puede ver el perfil de otros.
+-- View users: Any authenticated user can view other user profiles.
 CREATE POLICY "rw_users_select" ON rw_users FOR
 SELECT
     TO authenticated USING (true);
 
--- Insertar/Editar: Cada usuario maneja su propio perfil o lo gestiona un admin.
+-- Insert/Update: Each user manages their own profile, or managed by an admin.
 CREATE POLICY "rw_users_insert" ON rw_users FOR
 INSERT
     TO authenticated WITH CHECK (
@@ -102,9 +100,9 @@ UPDATE
     );
 
 -----------------------------------------------
--- TABLA: rw_channels
+-- TABLE: rw_channels
 -----------------------------------------------
--- Ver canales: Un usuario ve el canal si es miembro o si es admin.
+-- View channels: A user can view a channel if they are a member or an admin.
 CREATE POLICY "rw_channels_select" ON rw_channels FOR
 SELECT
     TO authenticated USING (
@@ -120,12 +118,12 @@ SELECT
         OR is_admin()
     );
 
--- Crear canales: Cualquier usuario autenticado asignándose como creador.
+-- Create channels: Any authenticated user assigning themselves as creator.
 CREATE POLICY "rw_channels_insert" ON rw_channels FOR
 INSERT
     TO authenticated WITH CHECK (created_by = auth.uid());
 
--- Actualizar/Eliminar: Solo el creador o un admin.
+-- Update/Delete: Only the creator or an admin.
 CREATE POLICY "rw_channels_update" ON rw_channels FOR
 UPDATE
     TO authenticated USING (
@@ -142,12 +140,11 @@ CREATE POLICY "rw_channels_delete" ON rw_channels FOR DELETE TO authenticated US
 );
 
 -----------------------------------------------
--- TABLA: rw_channel_members
+-- TABLE: rw_channel_members
 -----------------------------------------------
--- Ver miembros: Si el usuario forma parte del canal o es admin.
--- Usa is_channel_member() en vez de una subconsulta directa contra esta
--- misma tabla — ver el comentario junto a esa función para el porqué
--- (si no, esto causa "infinite recursion detected in policy").
+-- View members: If the user is a channel member or an admin.
+-- Uses is_channel_member() instead of a direct subquery against this same table —
+-- see helper function explanation (avoids "infinite recursion detected in policy").
 CREATE POLICY "rw_channel_members_select" ON rw_channel_members FOR
 SELECT
     TO authenticated USING (
@@ -155,7 +152,7 @@ SELECT
         OR is_admin()
     );
 
--- Unirse o agregar miembros:
+-- Join or add members:
 CREATE POLICY "rw_channel_members_insert" ON rw_channel_members FOR
 INSERT
     TO authenticated WITH CHECK (
@@ -172,7 +169,7 @@ INSERT
         OR is_admin()
     );
 
--- Salir o remover del canal:
+-- Leave or remove from channel:
 CREATE POLICY "rw_channel_members_delete" ON rw_channel_members FOR DELETE TO authenticated USING (
     user_id = auth.uid()
     OR EXISTS (
@@ -188,9 +185,9 @@ CREATE POLICY "rw_channel_members_delete" ON rw_channel_members FOR DELETE TO au
 );
 
 -----------------------------------------------
--- TABLA: rw_messages
+-- TABLE: rw_messages
 -----------------------------------------------
--- Leer mensajes: Solo si pertenece al canal.
+-- Read messages: Only if member of the channel or admin.
 CREATE POLICY "rw_messages_select" ON rw_messages FOR
 SELECT
     TO authenticated USING (
@@ -206,7 +203,7 @@ SELECT
         OR is_admin()
     );
 
--- Enviar mensaje: Debe ser miembro del canal y ser el autor.
+-- Send message: Must be a channel member and the author.
 CREATE POLICY "rw_messages_insert" ON rw_messages FOR
 INSERT
     TO authenticated WITH CHECK (
@@ -222,7 +219,7 @@ INSERT
         )
     );
 
--- Editar o Soft Delete: Solo el autor del mensaje o un admin.
+-- Edit or Soft Delete: Only the message author or an admin.
 CREATE POLICY "rw_messages_update" ON rw_messages FOR
 UPDATE
     TO authenticated USING (
@@ -234,9 +231,9 @@ UPDATE
     );
 
 -----------------------------------------------
--- TABLA: rw_message_embeddings
+-- TABLE: rw_message_embeddings
 -----------------------------------------------
--- Lectura: Hereda el permiso de la tabla de mensajes.
+-- Read: Inherits permission from the messages table.
 CREATE POLICY "rw_message_embeddings_select" ON rw_message_embeddings FOR
 SELECT
     TO authenticated USING (
@@ -253,15 +250,15 @@ SELECT
         OR is_admin()
     );
 
--- Escritura: Únicamente el sistema/backend (service_role) o un admin.
+-- Write: System/backend (service_role) or an admin only.
 CREATE POLICY "rw_message_embeddings_insert" ON rw_message_embeddings FOR
 INSERT
     TO service_role WITH CHECK (true);
 
 -----------------------------------------------
--- TABLA: rw_message_read_status
+-- TABLE: rw_message_read_status
 -----------------------------------------------
--- Leer estados de lectura: Miembros del canal.
+-- Read status: Channel members.
 CREATE POLICY "rw_message_read_status_select" ON rw_message_read_status FOR
 SELECT
     TO authenticated USING (
@@ -278,13 +275,13 @@ SELECT
         OR is_admin()
     );
 
--- Registrar confirmación de lectura: Únicamente para su propio usuario.
+-- Register read receipt: Only for their own user ID.
 CREATE POLICY "rw_message_read_status_insert" ON rw_message_read_status FOR
 INSERT
     TO authenticated WITH CHECK (user_id = auth.uid());
 
 -----------------------------------------------
--- TABLA: rw_refresh_tokens
+-- TABLE: rw_refresh_tokens
 -----------------------------------------------
--- Solo accesible por el propio usuario o por el backend service_role.
+-- Accessible only by the user owner or backend service_role.
 CREATE POLICY "rw_refresh_tokens_owner" ON rw_refresh_tokens FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());

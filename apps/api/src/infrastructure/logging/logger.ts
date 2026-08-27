@@ -2,9 +2,9 @@ import pino from "pino";
 import { env } from "../config/env";
 
 /**
- * Logger estructurado único para toda la app. En desarrollo imprime líneas
- * legibles y con color; en producción imprime JSON plano para que se pueda
- * mandar a cualquier agregador de logs sin necesitar parseo extra.
+ * Single structured logger for the whole app. In development it prints
+ * readable colored lines; in production it prints plain JSON so it can be
+ * shipped to any log aggregator without extra parsing.
  */
 export const logger = pino({
   level: env.NODE_ENV === "production" ? "info" : "debug",

@@ -24,24 +24,24 @@ import { AskCopilot } from "../use-cases/copilot/AskCopilot";
 import { IndexMessageEmbedding } from "../use-cases/copilot/IndexMessageEmbedding";
 
 /**
- * Inyección de dependencias hecha a mano — nada de framework de DI, solo
- * funciones planas que arman el grafo de objetos. Son apenas un puñado de
- * casos de uso, así que un framework agregaría más ceremonia de la que ahorra.
+ * Hand-rolled dependency injection — no DI framework, just plain functions
+ * that build the object graph. There are only a handful of use cases, so a
+ * framework would add more ceremony than it saves.
  *
- * Dos sabores de container, calzando con los dos contextos de BD de
+ * Two flavors of container, matching the two DB contexts from
  * withRLSContext.ts:
- *   - `buildSystemContainer`: para endpoints sin usuario logueado todavía
- *     (registro/login) o que a propósito se saltan el RLS (escritura de embeddings).
- *   - `buildAuthenticatedContainer`: para todo lo que debe respetar los
- *     permisos por fila del usuario actual.
- * Los dos reciben el cliente `db` ya escopeado como su único argumento —
- * no tienen idea de CÓMO se hizo ese escopeo, solo lo usan.
+ *   - `buildSystemContainer`: for endpoints with no logged-in user yet
+ *     (register/login) or that intentionally bypass RLS (embedding writes).
+ *   - `buildAuthenticatedContainer`: for everything that must respect the
+ *     current user's row-level permissions.
+ * Both take the already-scoped `db` client as their only argument — they
+ * have no idea *how* that scoping happened, they just use it.
  */
 
-// Singletons sin estado: seguros de armar una sola vez y compartir entre todas las requests.
+// Stateless singletons: safe to build once and share across every request.
 const jwtService = new JwtService();
 const passwordHasher = new PasswordHasher();
-const aiProvider = createAIProvider(); // elige OpenAI o Gemini según AI_PROVIDER, ver AIProviderFactory.ts
+const aiProvider = createAIProvider(); // picks OpenAI or Gemini based on AI_PROVIDER, see AIProviderFactory.ts
 
 export function buildSystemContainer(db: IDbClient) {
   const userRepository = new SupabaseUserRepository(db);
@@ -72,7 +72,7 @@ export function buildAuthenticatedContainer(db: IDbClient) {
   };
 }
 
-/** Solo para el paso de indexado de embeddings en modo fire-and-forget, con contexto de sistema. */
+/** Only for the fire-and-forget embedding indexing step, run with system context. */
 export function buildEmbeddingIndexer(db: IDbClient): IndexMessageEmbedding {
   return new IndexMessageEmbedding(aiProvider, new SupabaseMessageEmbeddingRepository(db));
 }

@@ -9,25 +9,26 @@ const SUPPORTED_LANGS: AppLang[] = ['es', 'en'];
 const FALLBACK_LANG: AppLang = 'es';
 
 /**
- * Wrapper sobre `@ngx-translate/core` — todo el resto de la app depende de
- * ESTE servicio para saber/cambiar el idioma, nunca de `TranslateService`
- * directo. Eso es lo que hace explícita la regla de "cero texto
- * hardcodeado": ningún componente decide un string en español o inglés por
- * su cuenta, todo sale de `assets/i18n/es.json` / `en.json` a través del
- * pipe `translate` (`{{ 'chat.empty.title' | translate }}`), y este
- * servicio es el único que decide CUÁL de los dos diccionarios está activo.
+ * Wrapper over `@ngx-translate/core` — everything else in the app
+ * depends on THIS service to know/change the language, never on
+ * `TranslateService` directly. That's what makes the "zero hardcoded
+ * text" rule explicit: no component decides a Spanish or English string
+ * on its own, everything comes from `assets/i18n/es.json` / `en.json`
+ * through the `translate` pipe (`{{ 'chat.empty.title' | translate }}`),
+ * and this service is the only one that decides WHICH of the two
+ * dictionaries is active.
  *
- * Guardamos la preferencia en localStorage para que recargar la página (o
- * volver otro día) no resetee el idioma que la persona ya eligió.
+ * We store the preference in localStorage so reloading the page (or
+ * coming back another day) doesn't reset the language the person already chose.
  */
 @Injectable({ providedIn: 'root' })
 export class I18nService {
   private readonly translate = inject(TranslateService);
 
   /**
-   * `TranslateService.currentLang` ya es un Signal en esta versión de
-   * ngx-translate — simplemente lo re-exponemos tipado a `AppLang` para que
-   * el resto de la app no tenga que lidiar con `string | null`.
+   * `TranslateService.currentLang` is already a Signal in this version of
+   * ngx-translate — we just re-expose it typed as `AppLang` so the rest
+   * of the app doesn't have to deal with `string | null`.
    */
   readonly currentLang = computed<AppLang>(() => (this.translate.currentLang() as AppLang) ?? FALLBACK_LANG);
 
@@ -36,17 +37,16 @@ export class I18nService {
   }
 
   /**
-   * Se llama una sola vez al arrancar la app (ver el `provideAppInitializer`
-   * en app.config.ts) para cargar el diccionario inicial ANTES de que se
-   * renderice el primer componente. Sin esto, la persona vería un
-   * parpadeo con las claves de traducción crudas (`chat.empty.title`) en
-   * vez del texto real durante el primer instante.
+   * Called once when the app starts (see the `provideAppInitializer` in
+   * app.config.ts) to load the initial dictionary BEFORE the first
+   * component renders. Without this, the person would see a flash of raw
+   * translation keys (`chat.empty.title`) instead of the real text for that first instant.
    */
   async initialize(): Promise<void> {
     await firstValueFrom(this.translate.use(this.resolveInitialLang()));
   }
 
-  /** Cambia el idioma activo y persiste la elección para la próxima visita. */
+  /** Changes the active language and persists the choice for the next visit. */
   async setLanguage(lang: AppLang): Promise<void> {
     await firstValueFrom(this.translate.use(lang));
     localStorage.setItem(STORAGE_KEY, lang);

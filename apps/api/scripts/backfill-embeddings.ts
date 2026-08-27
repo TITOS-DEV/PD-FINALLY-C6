@@ -1,15 +1,15 @@
 /**
- * Reindexa embeddings faltantes en rw_message_embeddings.
+ * Reindexes missing embeddings in rw_message_embeddings.
  *
- * ¿Por qué hace falta esto? El flujo normal (SendMessage → IndexMessageEmbedding,
- * ver MessageController) solo indexa un mensaje cuando pasa por la API. Un
- * mensaje insertado directo con SQL (como los del seed) o uno cuyo embedding
- * falló en su momento (el proveedor de IA caído, rate limit, etc. — ver el
- * comentario de "fire-and-forget" en IndexMessageEmbedding) nunca llega a
- * tener su fila en rw_message_embeddings, y el copiloto jamás lo va a poder
- * citar como fuente por más relevante que sea.
+ * Why is this needed? The normal flow (SendMessage → IndexMessageEmbedding,
+ * see MessageController) only indexes a message when it goes through the
+ * API. A message inserted directly with SQL (like the ones in the seed) or
+ * one whose embedding failed at the time (AI provider down, rate limit,
+ * etc. — see the "fire-and-forget" comment in IndexMessageEmbedding) never
+ * gets its row in rw_message_embeddings, and the copilot can never cite it
+ * as a source no matter how relevant it is.
  *
- * Uso:
+ * Usage:
  *   cd apps/api
  *   npx tsx scripts/backfill-embeddings.ts
  */

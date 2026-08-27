@@ -9,30 +9,14 @@ import { EmptyState } from '../../../../shared/ui/empty-state/empty-state';
 const MIN_SOURCES_TO_TRUST = 1;
 
 /**
- * Panel lateral del copiloto de IA. Cada pregunta que se manda queda como
- * un "turno" (`CopilotTurn`) con su propio estado (pending/answered/failed)
- * — igual que hacemos con los mensajes del chat, para que la persona vea
- * de inmediato que su pregunta se está procesando en vez de quedarse
- * mirando una pantalla congelada.
+ * AI Copilot side panel component. Each user query creates a conversation turn
+ * (`CopilotTurn`) tracking state (pending/answered/failed) for responsive user feedback.
  *
- * La parte más importante de este componente, la que pide explícitamente
- * el enunciado, es CÓMO se muestra una respuesta:
- *
- *   - Si `sources.length > 0`, la respuesta viene acompañada de la lista
- *     de mensajes reales que el backend usó para armarla (ver
- *     AskCopilot.ts del lado del backend) — cada fuente muestra de qué
- *     canal salió, quién la escribió y qué tan parecida es a la pregunta
- *     (`similarity`). Eso es lo que hace que la respuesta se sienta
- *     confiable: no es una caja negra, se puede ir a verificar de dónde salió.
- *
- *   - Si `sources.length === 0`, el backend igual devuelve un texto (el
- *     system prompt de AskCopilot ya le pide a la IA admitir que no sabe),
- *     pero acá lo remarcamos con un aviso visual aparte en vez de confiar
- *     solo en que el texto lo diga con las palabras justas — así, si el
- *     usuario le pregunta algo de un canal al que no pertenece (o algo que
- *     nadie escribió), queda clarísimo que la respuesta no está anclada en
- *     ningún mensaje real de sus canales, y no una alucinación con estilo de
- *     respuesta segura.
+ * Response rendering logic:
+ *   - If `sources.length > 0`: standard response accompanied by grounding sources list
+ *     (channel name, author name, similarity score).
+ *   - If `sources.length === 0`: response accompanied by visual alert indicating
+ *     that no message sources grounded the generated answer.
  */
 @Component({
   selector: 'app-copilot-panel',

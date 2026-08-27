@@ -5,20 +5,19 @@ import { ForbiddenError, UnauthorizedError } from "../../../domain/errors/AppErr
 const jwtService = new JwtService();
 
 /**
- * Verifica el header `Authorization: Bearer <access-token>` y le pega el
- * payload decodificado a `req.user`.
+ * Verifies the `Authorization: Bearer <access-token>` header and attaches
+ * the decoded payload to `req.user`.
  *
- * Este middleware es SOLO el primer paso de "activar el RLS": nos dice
- * QUIÉN está haciendo la request. No toca la base de datos para nada. El
- * segundo paso pasa dentro de cada llamada a un repositorio, que envuelve
- * sus consultas con `withRLSContext(req.user.id, ...)` (ver
- * infrastructure/db/withRLSContext.ts) para de verdad propagar ese id de
- * usuario a la sesión de Postgres y que `auth.uid()` resuelva bien dentro
- * de las políticas RLS.
+ * This middleware is ONLY step one of "activating RLS": it tells us WHO is
+ * making the request. It does NOT touch the database. Step two happens
+ * inside each repository call, which wraps its queries with
+ * `withRLSContext(req.user.id, ...)` (see infrastructure/db/withRLSContext.ts)
+ * to actually propagate that user id into the Postgres session so
+ * `auth.uid()` resolves correctly inside RLS policies.
  *
- * Dejo estos dos pasos separados a propósito: la autenticación (quién eres)
- * es un asunto de HTTP, la activación del RLS (qué puedes ver) es un
- * asunto de base de datos, y Clean Architecture quiere que eso viva en lugares distintos.
+ * We keep these two steps separate on purpose: authentication (who are
+ * you) is an HTTP concern, RLS activation (what can you see) is a database
+ * concern, and Clean Architecture wants those living in different places.
  */
 export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
   const header = req.header("Authorization");
@@ -33,13 +32,13 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
     req.user = jwtService.verifyAccessToken(token);
     next();
   } catch {
-    // Cubre tanto un token expirado como uno alterado/inválido — desde la
-    // perspectiva del cliente, los dos significan lo mismo: hay que loguearse de nuevo.
+    // Covers both an expired token and a tampered/invalid signature —
+    // from the client's perspective both just mean "log in again".
     next(new UnauthorizedError("Access token is invalid or expired"));
   }
 }
 
-/** Guardia de ruta para endpoints solo de admin. Debe correr después de authMiddleware. */
+/** Route guard for admin-only endpoints. Must run after authMiddleware. */
 export function requireAdmin(req: Request, _res: Response, next: NextFunction): void {
   if (req.user?.role !== "admin") {
     return next(new ForbiddenError("This action requires an admin account"));
