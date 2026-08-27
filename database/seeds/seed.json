@@ -1,0 +1,86 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "project": "Riwi Internal Messenger",
+    "normalization_documentation": {
+        "1NF": "Repetitive groups removed. All attributes contain atomic, indivisible values. Each table has a well-defined primary key.",
+        "2NF": "Full functional dependency guaranteed. Composite primary key tables (such as rw_channel_members and rw_message_read_status) ensure all non-key attributes fully depend on the complete composite primary key.",
+        "3NF": "Transitive dependencies eliminated. No non-key attribute depends on another non-key attribute (e.g. user information is isolated from channel and message tables)."
+    },
+    "seed_data": {
+        "users": [
+            {
+                "id": "11111111-1111-1111-1111-111111111111",
+                "name": "Admin Riwi",
+                "email": "admin@riwi.io",
+                "password_hash": "$2a$10$p.XY0cizUtiXHr/TsN/pVek3fdP/A.ldDFnHC394fIm8c7x8AlBri",
+                "role": "admin"
+            },
+            {
+                "id": "22222222-2222-2222-2222-222222222222",
+                "name": "Jhonatan Cadavid",
+                "email": "jhonatan@riwi.io",
+                "password_hash": "$2a$10$p.XY0cizUtiXHr/TsN/pVek3fdP/A.ldDFnHC394fIm8c7x8AlBri",
+                "role": "user"
+            },
+            {
+                "id": "33333333-3333-3333-3333-333333333333",
+                "name": "Sofia Gomez",
+                "email": "sofia@riwi.io",
+                "password_hash": "$2a$10$p.XY0cizUtiXHr/TsN/pVek3fdP/A.ldDFnHC394fIm8c7x8AlBri",
+                "role": "user"
+            }
+        ],
+        "channels": [
+            {
+                "id": "a1111111-1111-1111-1111-111111111111",
+                "name": "General",
+                "description": "Official Riwi announcements channel",
+                "created_by": "11111111-1111-1111-1111-111111111111"
+            },
+            {
+                "id": "b2222222-2222-2222-2222-222222222222",
+                "name": "Development Cohort 6",
+                "description": "Private channel for technical discussions",
+                "created_by": "22222222-2222-2222-2222-222222222222"
+            }
+        ],
+        "channel_members": [
+            {
+                "channel_id": "a1111111-1111-1111-1111-111111111111",
+                "user_id": "11111111-1111-1111-1111-111111111111"
+            },
+            {
+                "channel_id": "a1111111-1111-1111-1111-111111111111",
+                "user_id": "22222222-2222-2222-2222-222222222222"
+            },
+            {
+                "channel_id": "a1111111-1111-1111-1111-111111111111",
+                "user_id": "33333333-3333-3333-3333-333333333333"
+            },
+            {
+                "channel_id": "b2222222-2222-2222-2222-222222222222",
+                "user_id": "22222222-2222-2222-2222-222222222222"
+            },
+            {
+                "channel_id": "b2222222-2222-2222-2222-222222222222",
+                "user_id": "33333333-3333-3333-3333-333333333333"
+            }
+        ],
+        "messages": [
+            {
+                "id": "c1111111-1111-1111-1111-111111111111",
+                "channel_id": "a1111111-1111-1111-1111-111111111111",
+                "user_id": "11111111-1111-1111-1111-111111111111",
+                "content": "Welcome to the official Riwi internal messaging platform.",
+                "status": "sent"
+            },
+            {
+                "id": "c2222222-2222-2222-2222-222222222222",
+                "channel_id": "b2222222-2222-2222-2222-222222222222",
+                "user_id": "22222222-2222-2222-2222-222222222222",
+                "content": "Hello team, we are implementing RLS in PostgreSQL to enforce data privacy.",
+                "status": "sent"
+            }
+        ]
+    }
+}

@@ -1,0 +1,16 @@
+<div class="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+  <span class="text-4xl" aria-hidden="true">{{ icon() }}</span>
+  <p class="text-sm font-medium" [class.text-ink-1]="variant() === 'light'" [class.text-nav-text]="variant() === 'dark'">
+    {{ titleKey() | translate }}
+  </p>
+  @if (descriptionKey()) {
+    <p
+      class="max-w-xs text-sm"
+      [class.text-ink-3]="variant() === 'light'"
+      [class.text-nav-text-muted]="variant() === 'dark'"
+    >
+      {{ descriptionKey()! | translate }}
+    </p>
+  }
+  <ng-content />
+</div>

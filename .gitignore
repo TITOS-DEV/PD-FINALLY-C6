@@ -1,13 +1,57 @@
+# ---- Dependencies ----
 node_modules/
+.pnpm-store/
+
+# ---- Build output ----
 dist/
 build/
-coverage/
+out/
+*.tsbuildinfo
+
+# ---- Frontend framework caches (apps/web, whichever it ends up using) ----
+.angular/
+.next/
+.nuxt/
+.output/
+.svelte-kit/
+.vite/
+.turbo/
+
+# ---- Env files ----
+# Every .env variant is ignored EXCEPT the example template, which must stay tracked.
 .env
 .env.*
 !.env.example
-.angular/
-.next/
+
+# ---- Tests / coverage ----
+coverage/
+.nyc_output/
+
+# ---- Logs ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+
+# ---- Editor / IDE ----
 .vscode/
 .idea/
-*.log
+*.swp
+*.swo
+*~
+
+# ---- OS ----
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ---- Misc ----
+tmp/
+temp/
+.eslintcache
+*.tgz
+*.pem

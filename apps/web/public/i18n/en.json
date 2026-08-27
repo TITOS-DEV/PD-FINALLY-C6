@@ -1,0 +1,108 @@
+{
+  "common": {
+    "close": "Close",
+    "retry": "Retry"
+  },
+  "auth": {
+    "brand": {
+      "tagline": "Riwi's internal messenger, with an AI copilot that knows your conversations."
+    },
+    "fields": {
+      "name": "Name",
+      "email": "Email",
+      "password": "Password"
+    },
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to enter your workspace",
+      "submit": "Sign in",
+      "switchToRegister": "Don't have an account? Sign up"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "It only takes a minute",
+      "submit": "Create account",
+      "switchToLogin": "Already have an account? Sign in"
+    },
+    "registerSuccess": "Account created. You can sign in now.",
+    "errors": {
+      "loginFailed": "Email or password is incorrect.",
+      "registerFailed": "We couldn't create your account. Please try again."
+    }
+  },
+  "chat": {
+    "channels": {
+      "title": "Channels",
+      "emptyTitle": "You're not part of any channel yet",
+      "emptyDescription": "Once someone adds you to one, it'll show up here.",
+      "errorTitle": "We couldn't load your channels",
+      "errorDescription": "Check your connection and try again."
+    },
+    "channelMember": "Member",
+    "composer": {
+      "placeholder": "Write a message… (Enter to send, Shift+Enter for a new line)",
+      "send": "Send"
+    },
+    "loadingMore": "Loading earlier messages…",
+    "edited": "edited",
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "confirmDelete": "Delete this message?"
+    },
+    "status": {
+      "pending": "Sending…",
+      "failed": "Couldn't send",
+      "retry": "Retry"
+    },
+    "empty": {
+      "title": "No messages yet",
+      "description": "Send the first one to start the conversation!"
+    },
+    "errors": {
+      "loadTitle": "We couldn't load the messages",
+      "loadDescription": "Check your connection and try again.",
+      "sendFailed": "The message couldn't be sent.",
+      "loadMoreFailed": "We couldn't load earlier messages.",
+      "editFailed": "The message couldn't be edited.",
+      "deleteFailed": "The message couldn't be deleted."
+    },
+    "noChannelSelected": {
+      "title": "Pick a channel to get started",
+      "description": "Select one from the list on the left."
+    }
+  },
+  "copilot": {
+    "title": "Copilot",
+    "placeholder": "Ask something about your channels…",
+    "ask": "Ask",
+    "thinking": "Thinking…",
+    "errors": {
+      "askFailed": "The copilot couldn't answer."
+    },
+    "empty": {
+      "title": "Your AI copilot",
+      "description": "Ask something about your channels' conversations."
+    },
+    "noSources": "I couldn't find any of your messages backing this answer — take it with a grain of salt, or there isn't enough context in your channels.",
+    "sources": {
+      "title": "Sources",
+      "by": "by {{author}}",
+      "match": "match"
+    }
+  },
+  "profile": {
+    "logout": "Sign out",
+    "role": {
+      "user": "Member",
+      "admin": "Administrator"
+    },
+    "modal": {
+      "title": "Your profile",
+      "memberSince": "Member since",
+      "channels": "Channels"
+    }
+  }
+}

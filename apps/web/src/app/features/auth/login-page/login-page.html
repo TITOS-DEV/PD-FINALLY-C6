@@ -1,0 +1,83 @@
+<div class="flex min-h-dvh flex-col lg:flex-row">
+  <!-- Brand panel: top banner on mobile, left half column on desktop -->
+  <div class="relative flex shrink-0 items-center justify-center overflow-hidden bg-gradient-brand px-8 py-10 text-white lg:w-1/2 lg:py-12">
+    <div
+      class="pointer-events-none absolute inset-0 opacity-20"
+      style="background-image: radial-gradient(circle at 15% 20%, white, transparent 45%), radial-gradient(circle at 85% 80%, white, transparent 40%);"
+    ></div>
+    <div class="relative max-w-sm text-center lg:text-left">
+      <div class="mx-auto mb-5 inline-flex h-14 w-14 items-center justify-center rounded-fluent-lg bg-white/15 text-3xl backdrop-blur lg:mx-0">
+        💬
+      </div>
+      <h1 class="text-2xl font-bold sm:text-3xl">Riwi Internal Messenger</h1>
+      <p class="mt-3 text-sm text-brand-100 sm:text-base">
+        {{ 'auth.brand.tagline' | translate }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Form container panel -->
+  <div class="flex flex-1 items-center justify-center bg-surface-muted p-4">
+    <form class="w-full max-w-sm rounded-fluent-lg border border-border bg-surface p-6 shadow-lg" (ngSubmit)="submit()">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-ink-1">
+          {{ (mode() === 'login' ? 'auth.login.title' : 'auth.register.title') | translate }}
+        </h2>
+        <p class="mt-1 text-sm text-ink-3">
+          {{ (mode() === 'login' ? 'auth.login.subtitle' : 'auth.register.subtitle') | translate }}
+        </p>
+      </div>
+
+      @if (mode() === 'register') {
+        <label class="mb-3 block">
+          <span class="mb-1 block text-xs font-medium text-ink-2">{{ 'auth.fields.name' | translate }}</span>
+          <input
+            type="text"
+            required
+            class="w-full rounded-fluent border border-border px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            [ngModel]="name()"
+            (ngModelChange)="name.set($event)"
+            name="name"
+          />
+        </label>
+      }
+
+      <label class="mb-3 block">
+        <span class="mb-1 block text-xs font-medium text-ink-2">{{ 'auth.fields.email' | translate }}</span>
+        <input
+          type="email"
+          required
+          class="w-full rounded-fluent border border-border px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+          name="email"
+        />
+      </label>
+
+      <label class="mb-5 block">
+        <span class="mb-1 block text-xs font-medium text-ink-2">{{ 'auth.fields.password' | translate }}</span>
+        <input
+          type="password"
+          required
+          minlength="8"
+          class="w-full rounded-fluent border border-border px-3 py-2 text-sm outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          name="password"
+        />
+      </label>
+
+      <button
+        type="submit"
+        class="w-full rounded-fluent bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-glow-brand transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-border disabled:text-ink-3 disabled:shadow-none"
+        [disabled]="submitting()"
+      >
+        {{ (mode() === 'login' ? 'auth.login.submit' : 'auth.register.submit') | translate }}
+      </button>
+
+      <button type="button" class="mt-4 w-full text-center text-xs font-medium text-brand-600 hover:underline" (click)="toggleMode()">
+        {{ (mode() === 'login' ? 'auth.login.switchToRegister' : 'auth.register.switchToLogin') | translate }}
+      </button>
+    </form>
+  </div>
+</div>

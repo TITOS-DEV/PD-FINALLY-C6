@@ -1,3 +1,20 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm 11's supply-chain policy blocks a dependency's install/postinstall
+# script by default unless it's explicitly allow-listed here. esbuild
+# (a transitive dep of tsx/vitest) needs its postinstall to fetch the
+# correct native binary for the platform — without this, `pnpm install`
+# exits non-zero (not just a warning) in non-interactive environments like
+# Docker or CI, which is exactly what broke the API's Docker build.
+allowBuilds:
+  esbuild: true
+  # @parcel/watcher: file-watching native binding used by Angular's dev
+  # server/build tooling. lmdb + msgpackr-extract: fast embedded cache used
+  # by Angular CLI's persistent build cache. All three just install a
+  # prebuilt binary for the current platform — same deal as esbuild above.
+  '@parcel/watcher': true
+  lmdb: true
+  msgpackr-extract: true
+  '@scarf/scarf': false # only sends installation telemetry, no need to run

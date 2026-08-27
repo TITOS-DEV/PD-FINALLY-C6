@@ -1,0 +1,17 @@
+/**
+ * Pure CSS `:hover` rules for message action toolbar and hover timestamps.
+ * Standard CSS rules avoid Tailwind v4 `@media (hover: hover)` constraints,
+ * ensuring action buttons (edit/delete emojis) display reliably when hovering over a message row.
+ */
+.message-row .message-toolbar,
+.message-row .message-time-hover {
+  display: none;
+}
+
+.message-row:hover .message-toolbar {
+  display: flex;
+}
+
+.message-row:hover .message-time-hover {
+  display: inline;
+}

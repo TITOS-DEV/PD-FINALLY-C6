@@ -1,0 +1,53 @@
+<div class="flex h-full flex-col overflow-hidden">
+  <h2 class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wide text-nav-text-muted">
+    {{ 'chat.channels.title' | translate }}
+  </h2>
+
+  <div class="scrollbar-on-dark flex-1 overflow-y-auto px-2 pb-2">
+    @if (chatStore.channelsLoading()) {
+      <!-- Simple skeleton: 4 pulsing bars during initial channel fetch -->
+      <div class="flex flex-col gap-2 px-2">
+        @for (row of [0, 1, 2, 3]; track row) {
+          <div class="h-8 animate-pulse rounded-fluent bg-nav-hover"></div>
+        }
+      </div>
+    } @else if (chatStore.channelsError()) {
+      <app-empty-state
+        variant="dark"
+        icon="⚠️"
+        titleKey="chat.channels.errorTitle"
+        descriptionKey="chat.channels.errorDescription"
+      >
+        <button
+          type="button"
+          class="mt-2 rounded-fluent border border-nav-border px-3 py-1.5 text-sm font-medium text-brand-300 hover:bg-nav-hover"
+          (click)="chatStore.loadChannels()"
+        >
+          {{ 'common.retry' | translate }}
+        </button>
+      </app-empty-state>
+    } @else if (chatStore.channels().length === 0) {
+      <app-empty-state variant="dark" icon="📭" titleKey="chat.channels.emptyTitle" descriptionKey="chat.channels.emptyDescription" />
+    } @else {
+      <ul class="flex flex-col gap-0.5">
+        @for (channel of chatStore.channels(); track channel.id) {
+          <li>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-fluent px-3 py-1.5 text-left text-sm transition-colors"
+              [class.bg-nav-active]="chatStore.selectedChannelId() === channel.id"
+              [class.text-white]="chatStore.selectedChannelId() === channel.id"
+              [class.font-semibold]="chatStore.selectedChannelId() === channel.id"
+              [class.text-nav-text]="chatStore.selectedChannelId() !== channel.id"
+              [class.hover:bg-nav-hover]="chatStore.selectedChannelId() !== channel.id"
+              (click)="onSelect(channel.id)"
+            >
+              <span class="text-nav-text-muted" aria-hidden="true">#</span>
+              <span class="truncate">{{ channel.name }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</div>

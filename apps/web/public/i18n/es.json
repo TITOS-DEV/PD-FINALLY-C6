@@ -1,0 +1,108 @@
+{
+  "common": {
+    "close": "Cerrar",
+    "retry": "Reintentar"
+  },
+  "auth": {
+    "brand": {
+      "tagline": "La mensajería interna de Riwi, con un copiloto de IA que conoce tus conversaciones."
+    },
+    "fields": {
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "password": "Contraseña"
+    },
+    "login": {
+      "title": "Bienvenido de nuevo",
+      "subtitle": "Inicia sesión para entrar a tu espacio de trabajo",
+      "submit": "Iniciar sesión",
+      "switchToRegister": "¿No tienes cuenta? Regístrate"
+    },
+    "register": {
+      "title": "Crea tu cuenta",
+      "subtitle": "Solo te toma un minuto",
+      "submit": "Crear cuenta",
+      "switchToLogin": "¿Ya tienes cuenta? Inicia sesión"
+    },
+    "registerSuccess": "Cuenta creada. Ahora inicia sesión.",
+    "errors": {
+      "loginFailed": "El correo o la contraseña no son correctos.",
+      "registerFailed": "No pudimos crear tu cuenta. Intenta de nuevo."
+    }
+  },
+  "chat": {
+    "channels": {
+      "title": "Canales",
+      "emptyTitle": "Todavía no perteneces a ningún canal",
+      "emptyDescription": "Cuando te agreguen a uno, va a aparecer acá.",
+      "errorTitle": "No pudimos cargar tus canales",
+      "errorDescription": "Revisa tu conexión e intenta de nuevo."
+    },
+    "channelMember": "Miembro",
+    "composer": {
+      "placeholder": "Escribe un mensaje… (Enter para enviar, Shift+Enter para salto de línea)",
+      "send": "Enviar"
+    },
+    "loadingMore": "Cargando mensajes anteriores…",
+    "edited": "editado",
+    "actions": {
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "confirmDelete": "¿Eliminar este mensaje?"
+    },
+    "status": {
+      "pending": "Enviando…",
+      "failed": "No se pudo enviar",
+      "retry": "Reintentar"
+    },
+    "empty": {
+      "title": "Todavía no hay mensajes",
+      "description": "¡Envía el primero para arrancar la conversación!"
+    },
+    "errors": {
+      "loadTitle": "No pudimos cargar los mensajes",
+      "loadDescription": "Revisa tu conexión e intenta de nuevo.",
+      "sendFailed": "El mensaje no se pudo enviar.",
+      "loadMoreFailed": "No pudimos cargar mensajes anteriores.",
+      "editFailed": "No se pudo editar el mensaje.",
+      "deleteFailed": "No se pudo eliminar el mensaje."
+    },
+    "noChannelSelected": {
+      "title": "Elige un canal para empezar",
+      "description": "Selecciona uno de la lista de la izquierda."
+    }
+  },
+  "copilot": {
+    "title": "Copiloto",
+    "placeholder": "Pregúntale algo sobre tus canales…",
+    "ask": "Preguntar",
+    "thinking": "Pensando…",
+    "errors": {
+      "askFailed": "El copiloto no pudo responder."
+    },
+    "empty": {
+      "title": "Tu copiloto de IA",
+      "description": "Pregúntale algo sobre las conversaciones de tus canales."
+    },
+    "noSources": "No encontré mensajes tuyos que respalden esta respuesta — tómala con cautela o falta contexto en tus canales.",
+    "sources": {
+      "title": "Fuentes",
+      "by": "por {{author}}",
+      "match": "de coincidencia"
+    }
+  },
+  "profile": {
+    "logout": "Cerrar sesión",
+    "role": {
+      "user": "Miembro",
+      "admin": "Administrador"
+    },
+    "modal": {
+      "title": "Tu perfil",
+      "memberSince": "Miembro desde",
+      "channels": "Canales"
+    }
+  }
+}

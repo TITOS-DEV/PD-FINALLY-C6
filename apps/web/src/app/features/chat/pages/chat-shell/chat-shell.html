@@ -1,0 +1,65 @@
+<div class="flex h-dvh flex-col bg-surface-muted">
+  <!-- Top bar: mobile drawer toggle triggers -->
+  <header class="flex items-center justify-between bg-nav-bg px-3 py-2.5 text-nav-text shadow-sm lg:hidden">
+    <button type="button" class="rounded-fluent p-2 hover:bg-nav-hover" (click)="toggleSidebar()" aria-label="Channels">
+      ☰
+    </button>
+    <span class="flex items-center gap-1.5 text-sm font-semibold text-white">
+      <span aria-hidden="true">💬</span>
+      Riwi Internal Messenger
+    </span>
+    <button type="button" class="rounded-fluent p-2 hover:bg-nav-hover" (click)="toggleCopilot()" aria-label="Copilot">
+      🤖
+    </button>
+  </header>
+
+  <div class="relative flex flex-1 overflow-hidden">
+    <!-- Zone 1 (part a): channels list + profile card. Drawer on mobile, sidebar column on desktop. -->
+    <aside
+      class="absolute inset-y-0 left-0 z-30 flex w-72 flex-col bg-nav-bg shadow-lg transition-transform duration-200 lg:static lg:w-72 lg:shrink-0 lg:translate-x-0 lg:shadow-none"
+      [class.translate-x-0]="sidebarOpen()"
+      [class.-translate-x-full]="!sidebarOpen()"
+    >
+      <!-- Sidebar brand header -->
+      <div class="hidden items-center gap-2 border-b border-nav-border px-4 py-4 lg:flex">
+        <span class="text-lg" aria-hidden="true">💬</span>
+        <span class="text-sm font-semibold leading-tight text-white">Riwi Internal<br />Messenger</span>
+      </div>
+
+      <app-channel-list class="min-h-0 flex-1" (channelSelected)="closeSidebar()" />
+      <app-profile-card />
+    </aside>
+
+    @if (sidebarOpen()) {
+      <button
+        type="button"
+        class="fixed inset-0 z-20 bg-black/30 lg:hidden"
+        aria-label="Close"
+        (click)="closeSidebar()"
+      ></button>
+    }
+
+    <!-- Zone 1 (part b): main chat container -->
+    <main class="min-w-0 flex-1 overflow-hidden">
+      <app-chat-container />
+    </main>
+
+    <!-- Zone 2: AI Copilot panel. Mobile drawer / desktop fixed column -->
+    <aside
+      class="absolute inset-y-0 right-0 z-30 w-80 max-w-[90vw] shadow-lg transition-transform duration-200 lg:static lg:w-80 lg:shrink-0 lg:translate-x-0 lg:shadow-none"
+      [class.translate-x-0]="copilotOpen()"
+      [class.translate-x-full]="!copilotOpen()"
+    >
+      <app-copilot-panel />
+    </aside>
+
+    @if (copilotOpen()) {
+      <button
+        type="button"
+        class="fixed inset-0 z-20 bg-black/30 lg:hidden"
+        aria-label="Close"
+        (click)="closeCopilot()"
+      ></button>
+    }
+  </div>
+</div>

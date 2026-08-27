@@ -1,0 +1,39 @@
+# Riwi Internal Messenger connects straight to a real Supabase Postgres
+# project (see DECISIONS.md, "RLS necesita el rol authenticated real") —
+# there's no local Postgres/pgvector container here on purpose. `docker
+# compose up` builds and runs BOTH the API and the web frontend; migrations
+# and seed data are applied directly against your Supabase project (see README).
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: riwi-api
+    ports:
+      - "${PORT:-4000}:4000"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: riwi-web
+    ports:
+      - "${WEB_PORT:-4200}:80"
+    # Does not need its own .env: the API URL is fixed at build time
+    # (Angular resolves `environment.ts` this way, see
+    # src/environments/environment.development.ts) pointing to
+    # http://localhost:4000 — as docker-compose exposes both
+    # containers directly to host ports, browser requests work identically
+    # regardless of whether the backend runs in Docker or standalone.
+    depends_on:
+      - api
+    restart: unless-stopped
