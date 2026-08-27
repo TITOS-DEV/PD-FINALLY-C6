@@ -1,9 +1,11 @@
-import express, { Express } from "express";
+import express, { Express, NextFunction, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import swaggerUi from "swagger-ui-express";
 import { correlationId } from "./http/middlewares/correlationId";
 import { errorHandler, notFoundHandler } from "./http/middlewares/errorHandler";
 import { apiRouter } from "./http/routes";
+import { openApiSpec } from "./http/openapi/openapiSpec";
 import { env } from "../infrastructure/config/env";
 
 /**
@@ -20,6 +22,20 @@ export function createApp(): Express {
   app.use(correlationId);
 
   app.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
+
+  // Swagger UI necesita poder correr sus propios scripts/estilos inline —
+  // el Content-Security-Policy por defecto de helmet se lo bloquearía, así
+  // que se lo sacamos SOLO en esta ruta de documentación, no en el resto de la API.
+  app.get("/api/openapi.json", (_req, res) => res.status(200).json(openApiSpec));
+  app.use(
+    "/api/docs",
+    (_req: Request, res: Response, next: NextFunction) => {
+      res.removeHeader("Content-Security-Policy");
+      next();
+    },
+    swaggerUi.serve,
+    swaggerUi.setup(openApiSpec)
+  );
 
   app.use("/api", apiRouter);
 
